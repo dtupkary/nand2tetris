@@ -1,0 +1,47 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/01/DMux8Way.hdl
+
+/**
+ * 8-way demultiplexor:
+ * {a, b, c, d, e, f, g, h} = {in, 0, 0, 0, 0, 0, 0, 0} if sel == 000
+ *                            {0, in, 0, 0, 0, 0, 0, 0} if sel == 001
+ *                            etc.
+ *                            {0, 0, 0, 0, 0, 0, 0, in} if sel == 111
+ */
+
+CHIP DMux8Way {
+    IN in, sel[3];
+    OUT a, b, c, d, e, f, g, h;
+
+    PARTS:
+    Not(in=sel[0],out=notsel0);
+    Not(in=sel[1],out=notsel1);
+    Not(in=sel[2],out=notsel2);
+
+    And(a=notsel0,b=notsel1,out=choice00); // 1 iff last 2 bits are 0.
+    And(a=notsel0,b=sel[1],out=choice10); // 1 iff last 2 bits are 10.
+    And(a=sel[0],b=notsel1,out=choice01); // 1 iff last 2 bits are 01.
+    And(a=sel[0],b=sel[1],out=choice11); //  1 iff last 2 bits are 11.
+
+    And(a=notsel2,b=choice00,out=choice000); //  1 iff sel=000
+    And(a=notsel2,b=choice01,out=choice001); //  1 iff 001
+    And(a=notsel2,b=choice10,out=choice010); // 1 iff 010
+    And(a=notsel2,b=choice11,out=choice011); // 1 iff 0111
+    And(a=sel[2],b=choice00,out=choice100); // 1 iff 100
+    And(a=sel[2],b=choice01,out=choice101); // 1 iff 101
+    And(a=sel[2],b=choice10,out=choice110); // 1 iff 110
+    And(a=sel[2],b=choice11,out=choice111); // 1 iff 111
+
+    And(a=in,b=choice000,out=a);
+    And(a=in,b=choice001,out=b);
+    And(a=in,b=choice010,out=c);
+    And(a=in,b=choice011,out=d);
+    And(a=in,b=choice100,out=e);
+    And(a=in,b=choice101,out=f);
+    And(a=in,b=choice110,out=g);
+    And(a=in,b=choice111,out=h);
+
+
+}
