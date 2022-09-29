@@ -55,9 +55,9 @@ class Parser:
     
     def arg1(self):
         current_command = self.current_inst.split()
-        if self.commandType == "C_ARITHMETIC":
+        if self.commandType() == "C_ARITHMETIC":
             return current_command[0]
-        elif self.commandType == "C_RETURN":
+        elif self.commandType() == "C_RETURN":
             print("WARNING : Cannot call arg1 on RETURNN commands")
         return current_command[1]
     
@@ -78,49 +78,104 @@ class trivial_CodeWriter:
 
 
 class CodeWriter:
+
+    """
+     Contract between methods:
+    1. Contents of the A and D registries are not guaranteed,
+        so methods must set them to the values they need.
+    2. Methods must always leave @SP pointing to the correct location.
+    """
+
     def __init__(self, filename):
         self.filename = filename # set the file we must write into
         self.file = open(self.filename, 'w') #open the file
         return
 
-    def writeArithmetic(parser_object):
-        #write
-        return
-
-
-
+    
     def write(self,parser_object):
         command_type = parser_object.commandType()
 
         if command_type == "C_PUSH" or command_type == "C_POP":
             self.writePushPop(parser_object)
-    
+        if command_type =="C_ARITHMETIC":
+            self.writeArithmetic(parser_object)
+
+    def writeArithmetic(self,parser_object):
+        #write
+        operation = parser_object.arg1() 
+       
+        if operation not in ['neg', 'not']: # Binary operator (comments refer to binary operations)
+            self.pop_stack_to_D() #D stores y.
+        self.decrement_SP()
+        self.set_A_to_stack() # M = x
+
+
+        if operation == "add":
+            self.file.write("M=M+D\n")
+        elif operation == "sub":
+            self.file.write("M=M-D\n")
+        elif operation == "and":
+            self.file.write("M=D&M\n")
+        elif operation == "or":
+            self.file.write("M=D|M\n")
+        elif operation == "neg":
+            self.file.write("M=-M\n")
+        elif operation == "not":
+            self.file.write("M=!M\n")
+        
+
+        #elif operation in ['eq', 'gt', 'lt']:
+
+
+        self.increment_SP()
+
+
+        
+        return
+
 
     def writePushPop(self,parser_object):
         #write 
         command_type = parser_object.commandType()
-
-    
-           
-        
+       
         arg1 = parser_object.arg1() #segment
         arg2 = parser_object.arg2() #index
-
-        self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
-
+        
         if command_type == "C_PUSH":
-            self.file.write("D=M\n") # D stores value to be pushed
+            self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
+            if arg1 == "constant":
+                self.file.write("D=A\n") #D stores value to be pushed
+            else:
+                self.file.write("D=M\n") # D stores value to be pushed
             self.push_D_to_stack()
+            self.file.write("// completed a push \n")
         elif command_type == "C_POP":
+            self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
+            self.file.write("D=A\n")
+            self.file.write("@R13\n")
+            self.file.write("M=D\n") #R13 stores location of object to be ppushed / popped.
             self.pop_stack_to_D() # D stores value to be popped
-            self.file.write("M=D\n") #store it in D
-
+            #but now A might be changed, we need A to be the content of R13
+            self.file.write("@R13\n")
+            self.file.write("A=M\n")
+            self.file.write("M=D\n") #pop it to 
+            self.file.write("// completed a pop \n")
         else:
             raise Exception("Command type of parser and codewriter not matching")
 
         
 
-       
+    def decrement_SP(self):
+        self.file.write('@SP\n')
+        self.file.write('M=M-1\n')
+
+    def increment_SP(self):
+        self.file.write('@SP\n')
+        self.file.write('M=M+1\n')
+
+    def set_A_to_stack(self):
+        self.file.write('@SP\n')
+        self.file.write('A=M\n')
 
 
 
@@ -129,10 +184,8 @@ class CodeWriter:
     def resolve_address(self,segment,index): #set the value of A to be the location of object to be pushed / popped
 
         if segment=="constant":
-            self.file.write("@"+index+"\n") #A stores the constant value
-            self.file.write("D=A\n") # D stores constant value
-            self.file.write("@R13\n") # A stores R13
-            self.file.write("M=D\n") # Location R13 stores D
+            self.file.write("@"+index+"\n") #A stores the constant value (NOT THE ADDRESS!!)
+        
             
         if segment in ["local","argument","this","that"]:
             self.file.write("@"+location_dict[segment]+"\n") # A stores location of location of base of segment.
@@ -162,14 +215,14 @@ class CodeWriter:
         self.file.write("M=D\n") # add value to stack
         self.file.write("@SP\n") 
         self.file.write("M=M+1\n") #increment stack
+        self.file.write("// pushed D to stack \n")
     
     def pop_stack_to_D(self):
         self.file.write("@SP\n") # A stores location of locationn of SP
-        self.file.write("A=M\n") # A stores location of SP
-        self.file.write("D=M") #D stores top of stack
-        self.file.write("@SP\n") #SP stores 
         self.file.write("M=M-1\n") #decrement stack.
-    
+        self.file.write("A=M\n") # A stores location of SP
+        self.file.write("D=M\n") #D stores top of stack
+        self.file.write("// popped stack to D \n")
         
 
 
@@ -182,8 +235,8 @@ class CodeWriter:
 
 
 
-input_path = "./testing/BasicTest.vm"
-output_file_path = "./testing/Output.txt"
+input_path = "./MemoryAccess/BasicTest/BasicTest.vm"
+output_file_path = "./MemoryAccess/BasicTest/BasicTest.asm"
 
 
 parser= Parser(input_path)
