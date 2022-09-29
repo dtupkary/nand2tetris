@@ -129,18 +129,18 @@ class CodeWriter:
 
             self.file.write("D=M-D\n") 
             self.file.write("M=-1\n") #put M as true tentatively.
-            self.file.write("@jmppoint"+str(self.jump_index)+"\n") #prep to jump
+            self.file.write("@JMPPOINT{}".format(str(self.jump_index))+"\n") #prep to jump
             
             if operation =="eq":
-                self.file.write("D:JEQ\n") #Jump to label is true   
+                self.file.write("D;JEQ\n") #Jump to label is true   
             if operation == "gt":
-                self.file.write("D:JGT")
+                self.file.write("D;JGT\n")
             if operation =="lt":
-                self.file.write("D:JLT")
+                self.file.write("D;JLT\n")
                 #following assembly code sets M to false, and is only exected if statement is false
             self.set_A_to_stack()
             self.file.write("M=0\n") #M is false
-            self.file.write("(jmppoint"+str(self.jump_index)+"\n)")
+            self.file.write("(JMPPOINT{}".format(str(self.jump_index))+")\n")
             self.jump_index=self.jump_index+1
 
 
@@ -264,7 +264,7 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 #print("Input path is ",input," \n. Starting Translation \n ")
 
 
-input_path = "./MemoryAccess/BasicTest"
+input_path = "./StackArithmetic/StackTest/StackTest.vm"
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
