@@ -1,8 +1,8 @@
 #VM_translator for Chapter 7 of the Nand2Tetris course.
 
-import os
-from signal import raise_signal
 
+import sys
+import os
 
 
 global ARTHIMETIC_LIST
@@ -89,6 +89,7 @@ class CodeWriter:
     def __init__(self, filename):
         self.filename = filename # set the file we must write into
         self.file = open(self.filename, 'w') #open the file
+        self.jump_index=0
         return
 
     
@@ -124,7 +125,24 @@ class CodeWriter:
             self.file.write("M=!M\n")
         
 
-        #elif operation in ['eq', 'gt', 'lt']:
+        elif operation in ["eq", "gt", "lt"]:
+
+            self.file.write("D=M-D\n") 
+            self.file.write("M=-1\n") #put M as true tentatively.
+            self.file.write("@jmppoint"+str(self.jump_index)+"\n") #prep to jump
+            
+            if operation =="eq":
+                self.file.write("D:JEQ\n") #Jump to label is true   
+            if operation == "gt":
+                self.file.write("D:JGT")
+            if operation =="lt":
+                self.file.write("D:JLT")
+                #following assembly code sets M to false, and is only exected if statement is false
+            self.set_A_to_stack()
+            self.file.write("M=0\n") #M is false
+            self.file.write("(jmppoint"+str(self.jump_index)+"\n)")
+            self.jump_index=self.jump_index+1
+
 
 
         self.increment_SP()
@@ -205,10 +223,11 @@ class CodeWriter:
             self.file.write("D=A\n") # D Stores location of based of segment
             self.file.write("@"+index+"\n") # A stores indeex
             self.file.write("A=D+A\n") # A stores location of segment[index]/
-           
 
 
-        ##to do add static.
+
+
+        
     def push_D_to_stack(self):
         self.file.write("@SP\n") #A stores the location of the location of SP
         self.file.write("A=M\n") #A stores location of SP
@@ -229,25 +248,44 @@ class CodeWriter:
 
 
 
+def main(parser,cw): #simple function that takes a parser, codewriter and starts translating
+    while parser.current_inst != "": #while parser has not reached end of while
+        if parser.is_instruction():
+            cw.write(parser) 
+        parser.read_next_instruction()
+
+    print("*** Translation completed ***")
 
 
 
 
 
+#input_path = sys.argv[0]
+#print("Input path is ",input," \n. Starting Translation \n ")
 
-input_path = "./MemoryAccess/BasicTest/BasicTest.vm"
-output_file_path = "./MemoryAccess/BasicTest/BasicTest.asm"
 
+input_path = "./MemoryAccess/BasicTest"
 
-parser= Parser(input_path)
-cw = CodeWriter(output_file_path)
+if input_path.endswith(".vm"): #end of path is .vm, so file
+    output_file_path = input_path.replace(".vm",".asm")
+    
+    parser= Parser(input_path)
+    cw = CodeWriter(output_file_path)
 
-while parser.current_inst != "": #while parser has not reached end of while
-    if parser.is_instruction():
-        cw.write(parser) 
-    parser.read_next_instruction()
+    main(parser,cw)
 
-print("done")
+   
+else : #its a directory
+    output_file_path = input_path+".asm"
+
+    cw = CodeWriter(output_file_path)
+
+    for file_path in os.listdir(input_path):
+        if file_path.endswith(".vm"):
+            parser = Parser(input_path +"/"+file_path)
+            main(parser,cw)
+    
+
 
 
 
