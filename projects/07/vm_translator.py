@@ -90,9 +90,14 @@ class CodeWriter:
         self.filename = filename # set the file we must write into
         self.file = open(self.filename, 'w') #open the file
         self.jump_index=0
+        self.current_parsing_file = ""
         return
 
-    
+    def set_parsing_file(self,parser_object):
+        input_file_name = parser_object.filename.split("/")[-1]
+        self.current_parsing_file = input_file_name.replace(".vm","")
+
+
     def write(self,parser_object):
         command_type = parser_object.commandType()
 
@@ -224,6 +229,15 @@ class CodeWriter:
             self.file.write("@"+index+"\n") # A stores indeex
             self.file.write("A=D+A\n") # A stores location of segment[index]/
 
+        if segment == "static":
+            # we need first the filename and thenwe can index as file.segment
+            name = self.current_parsing_file+"."+index
+            self.file.write("@"+name+"\n")
+
+
+
+
+
 
 
 
@@ -264,14 +278,14 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 #print("Input path is ",input," \n. Starting Translation \n ")
 
 
-input_path = "./StackArithmetic/StackTest/StackTest.vm"
+input_path = "./MemoryAccess/StaticTest/StaticTest.vm"
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
     
     parser= Parser(input_path)
     cw = CodeWriter(output_file_path)
-
+    cw.set_parsing_file(parser)
     main(parser,cw)
 
    
@@ -283,6 +297,7 @@ else : #its a directory
     for file_path in os.listdir(input_path):
         if file_path.endswith(".vm"):
             parser = Parser(input_path +"/"+file_path)
+            cw.set_parsing_file(parser) #so that codewriter knows which file it is parsing
             main(parser,cw)
     
 
