@@ -91,7 +91,8 @@ class CodeWriter:
     def __init__(self, filename):
         self.filename = filename # set the file we must write into
         self.file = open(self.filename, 'w') #open the file
-        self.jump_index=0
+        self.jump_index = 0
+        self.call_index = 0
         self.current_parsing_file = ""
         self.function_name = "" # we can initialize this to zero, coz we need it to produce labels, and labels don't appear outside of functions :P
 
@@ -118,6 +119,13 @@ class CodeWriter:
             self.writeIf(parser_object)
         if command_type == "C_LABEL":
             self.writeLabel(parser_object)
+
+        if command_type == "C_CALL":
+            self.writeCall(parser_object)
+        if command_type == "C_FUNCTION":
+            self.writeFunction(parser_object)
+        if command_type == "C_RETURN":
+            self.writeReturn(parser_object)
 
     def writeArithmetic(self,parser_object):
         #write
@@ -216,6 +224,160 @@ class CodeWriter:
 
 
 
+    def writeFunction(self,parser_object):
+        num_local = parser_object.arg2()
+        self.function_name = num_local.arg()
+        self.file.write("({})".format(self.function_name))
+        for i in range(0,num_local):
+            self.file.write("D=0\n") 
+            self.push_D_to_stack()
+        
+    def writeCall(self, parser_object):
+        #We end the assembly code for call with (returnAddress). Thus, after the call ends (Via return), the execution must 
+        # proceed by starting execution form the label of return Address..
+
+        # note because we might call a function multiple times, eeach time the return address must be unique ...
+
+        function_name = parser_object.arg1()
+        nargs = parser_object.arg2()
+
+        ret_address = function_name + "RET"+str(self.call_index)
+        self.call_index += 1
+
+        #push return-address
+        self.file.write("@{}\n".format(ret_address))
+        self.file.write("D=A\n")
+        self.push_D_to_stack()
+
+        #push LCL, ARG, THIS, THAT
+
+        for symbol in ["LCL","ARG","THIS","THAT"]:
+            self.file.write("@{}\n".format(symbol))
+            self.file.write("D=M\n")
+            self.push_D_to_stack()
+        
+        #LCL = SP
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+
+        #ARG = SP - narg - 5
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@{}\n".format(nargs+5))
+        self.file.write("D=D-A\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+        
+        #goto f.
+
+        self.file.write("@{}\n".format(function_name))
+        self.file.write("0;JMP\n")
+
+    def writeCall_functionnameinput(self, function_name, nargs):
+        #We end the assembly code for call with (returnAddress). Thus, after the call ends (Via return), the execution must 
+        # proceed by starting execution form the label of return Address..
+
+        # note because we might call a function multiple times, eeach time the return address must be unique ...
+
+        ret_address = function_name + "RET"+str(self.call_index)
+        self.call_index += 1
+
+        #push return-address
+        self.file.write("@{}\n".format(ret_address))
+        self.file.write("D=A\n")
+        self.push_D_to_stack()
+
+        #push LCL, ARG, THIS, THAT
+
+        for symbol in ["LCL","ARG","THIS","THAT"]:
+            self.file.write("@{}\n".format(symbol))
+            self.file.write("D=M\n")
+            self.push_D_to_stack()
+        
+        #LCL = SP
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+
+        #ARG = SP - narg - 5
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@{}\n".format(nargs+5))
+        self.file.write("D=D-A\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+        
+        #goto f.
+
+        self.file.write("@{}\n".format(function_name))
+        self.file.write("0;JMP\n")
+
+
+    def writeReturn(self,parser_object):
+
+        #R14 = frame
+        #R15 = ret
+
+        self.file.write("@LCL\n")
+        self.file.write("D=M\n") 
+        self.file.write("@R14\n")
+        self.file.write("M=D\n") #saves LCL in R14
+
+        self.file.write("@LCL\n")
+        self.file.write("D=M\n")
+        self.file.write("@5\n")
+        self.file.write("D=D-A\n") #D is now the address that stores return address value.
+        self.file.write("A=D\n") # A is now the address that stores the return address value.
+        self.file.write("D=M\n") # D is now the return address value. 
+        self.file.write("@R15\n")
+        self.file.write("M=D\n") #saves return address to R15
+
+        # *ARG = pop()
+        self.pop_stack_to_D()
+        self.file.write('@ARG\n')
+        self.file.write('A=M\n')
+        self.file.write('M=D\n')
+
+        # SP = ARG+1
+        self.file.write('@ARG\n')
+        self.file.write('D=M\n')
+        self.file.write('@SP\n')
+        self.file.write('M=D+1\n')
+
+        # THAT = *(FRAME-1)
+        # THIS = *(FRAME-2)
+        # ARG = *(FRAME-3)
+        # LCL = *(FRAME-4)
+        offset = 1
+        for address in ['@THAT', '@THIS', '@ARG', '@LCL']:
+            self.file.write('@R14\n')
+            self.file.write('D=M\n') # Save start of frame
+            self.file.write('@{}\n'.format(str(offset)))
+            self.file.write('D=D-A\n') # Adjust address
+            self.file.write('A=D\n') # Prepare to load value at address
+            self.file.write('D=M\n') # Store value
+            self.file.write(address+"\n")
+            self.file.write('M=D\n') # Save value
+            offset += 1
+
+        # goto RET
+        self.file.write('@R13\n')
+        self.file.write('A=M\n')
+        self.file.write('0;JMP\n')
+
+    def setup_init(self):
+        self.file.write('@256\n')
+        self.file.write('D=A\n')
+        self.file.write('@SP\n')
+        self.file.write('M=D\n') #stack pointer is set to 256 
+        self.writeCall_functionnameinput('Sys.init', 0)
+        # self.file.write('@Sys.init')
+        # self.file.write('0;JMP')
+
+
 
 
 
@@ -312,6 +474,7 @@ if input_path.endswith(".vm"): #end of path is .vm, so file
     
     parser= Parser(input_path)
     cw = CodeWriter(output_file_path)
+    #cw.setup_init()
     cw.set_parsing_file(parser)
     main(parser,cw)
 
@@ -320,6 +483,7 @@ else : #its a directory
     output_file_path = input_path+".asm"
 
     cw = CodeWriter(output_file_path)
+    cw.setup_init()
 
     for file_path in os.listdir(input_path):
         if file_path.endswith(".vm"):
