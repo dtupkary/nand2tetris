@@ -225,9 +225,9 @@ class CodeWriter:
 
 
     def writeFunction(self,parser_object):
-        num_local = parser_object.arg2()
-        self.function_name = num_local.arg()
-        self.file.write("({})".format(self.function_name))
+        num_local = int(parser_object.arg2())
+        self.function_name = parser_object.arg1()
+        self.file.write("({})\n".format(self.function_name))
         for i in range(0,num_local):
             self.file.write("D=0\n") 
             self.push_D_to_stack()
@@ -326,7 +326,7 @@ class CodeWriter:
         self.file.write("@R14\n")
         self.file.write("M=D\n") #saves LCL in R14
 
-        self.file.write("@LCL\n")
+        self.file.write("@R14\n")
         self.file.write("D=M\n")
         self.file.write("@5\n")
         self.file.write("D=D-A\n") #D is now the address that stores return address value.
@@ -364,7 +364,7 @@ class CodeWriter:
             offset += 1
 
         # goto RET
-        self.file.write('@R13\n')
+        self.file.write('@R15\n')
         self.file.write('A=M\n')
         self.file.write('0;JMP\n')
 
@@ -467,7 +467,7 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 #print("Input path is ",input," \n. Starting Translation \n ")
 
 
-input_path = "./ProgramFlow/FibonacciSeries/FibonacciSeries.vm"
+input_path = "./FunctionCalls/SimpleFunction/SimpleFunction.vm"
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
