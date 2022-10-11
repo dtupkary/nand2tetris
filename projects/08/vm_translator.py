@@ -107,7 +107,7 @@ class CodeWriter:
 
     def write(self,parser_object):
         command_type = parser_object.commandType()
-
+        self.file.write("//{}\n".format(parser_object.current_inst))
         if command_type == "C_PUSH" or command_type == "C_POP":
             self.writePushPop(parser_object)
         if command_type =="C_ARITHMETIC":
@@ -190,7 +190,7 @@ class CodeWriter:
             else:
                 self.file.write("D=M\n") # D stores value to be pushed
             self.push_D_to_stack()
-            self.file.write("// completed a push \n")
+            
         elif command_type == "C_POP":
             self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
             self.file.write("D=A\n")
@@ -201,7 +201,7 @@ class CodeWriter:
             self.file.write("@R13\n")
             self.file.write("A=M\n")
             self.file.write("M=D\n") #pop it to 
-            self.file.write("// completed a pop \n")
+            
         else:
             raise Exception("Command type of parser and codewriter not matching")
 
@@ -239,7 +239,7 @@ class CodeWriter:
         # note because we might call a function multiple times, eeach time the return address must be unique ...
 
         function_name = parser_object.arg1()
-        nargs = parser_object.arg2()
+        nargs = int(parser_object.arg2())
 
         ret_address = function_name + "RET"+str(self.call_index)
         self.call_index += 1
@@ -434,14 +434,13 @@ class CodeWriter:
         self.file.write("M=D\n") # add value to stack
         self.file.write("@SP\n") 
         self.file.write("M=M+1\n") #increment stack
-        self.file.write("// pushed D to stack \n")
-    
+        
     def pop_stack_to_D(self):
         self.file.write("@SP\n") # A stores location of locationn of SP
         self.file.write("M=M-1\n") #decrement stack.
         self.file.write("A=M\n") # A stores location of SP
         self.file.write("D=M\n") #D stores top of stack
-        self.file.write("// popped stack to D \n")
+        
 
 
     
@@ -467,7 +466,8 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 #print("Input path is ",input," \n. Starting Translation \n ")
 
 
-input_path = "./FunctionCalls/SimpleFunction/SimpleFunction.vm"
+#input_path = "./FunctionCalls/FibonacciElement"
+input_path = "./FunctionCalls/NestedCall/Sys.vm"
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
@@ -480,10 +480,10 @@ if input_path.endswith(".vm"): #end of path is .vm, so file
 
    
 else : #its a directory
-    output_file_path = input_path+".asm"
+    output_file_path = input_path+"/"+input_path.split()[-1]+".asm"
 
     cw = CodeWriter(output_file_path)
-    cw.setup_init()
+    #cw.setup_init()
 
     for file_path in os.listdir(input_path):
         if file_path.endswith(".vm"):

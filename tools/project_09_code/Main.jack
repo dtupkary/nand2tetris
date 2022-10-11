@@ -1,0 +1,44 @@
+/* Main file */
+class Main
+{
+    static int numturns;
+    static int numpos;
+
+    function void main()
+    {
+        var int i;
+        var Array Xpos, Ypos;
+        let numturns = Keyboard.readInt("How many turns? ");
+        
+        let numpos = Keyboard.readInt("How many starting blocks? ");
+
+        let Xpos = Array.new(numpos);
+        let Ypos = Array.new(numpos);
+        let i = 0;
+        while (i < numpos)
+        {
+            let Xpos[i] = Keyboard.readInt("Enter X position ");
+            let Ypos[i] = Keyboard.readInt("Enter Y position ");
+            let i = i + 1;
+        }
+
+        do Output.printString("Input complete, starting game ");
+        do Sys.wait(3000);
+        do Screen.clearScreen();
+
+        
+
+        // map = Map.new(Xpos,Ypos)
+        // map. display()
+
+        // while i < numturns
+        // map.update()
+        // map.display
+
+        return;
+
+    }
+
+
+
+}

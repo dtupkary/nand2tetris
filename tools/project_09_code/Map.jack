@@ -1,0 +1,81 @@
+// Implements the Map class 15 by 32 square of 16 by 16 size each.
+
+class Map{
+    field Array mapArray;
+    field int numpos;
+
+    constructor Map new(Array Xpos, Array Ypos, int numpos)
+    {   
+        let mapArray = Array.new(15*32);
+        do configmap(Xpos,Ypos);
+        return this;
+    }
+
+    function int converttoX (int index)
+    {
+        return (index - (index/32));
+    }
+
+    function int converttoY(int index)
+    {
+        return index/32;
+    }
+
+    function int converttoIndex(int x, int y)
+    {
+        return ((y*32)+x);
+    }
+
+    method void configmap(Array Xpos, Array Ypos)
+    {
+        var int i, index;
+        let i = 0;
+        while (i < 15*32)
+        {
+            let mapArray[i]=0;
+            let i = i+1;
+        }
+
+        let i = 0;
+        while (i < numpos)
+        {
+            let index = Map.converttoIndex(Xpos[i],Ypos[i]);
+            let mapArray[i]=1;
+            let i = i+1;
+        }
+        return;
+    }
+
+    method void display()
+
+    {
+        var int index,x,y;
+        let x =0;
+
+        while (x < 15)
+        {
+            let y =0;
+            while (y < 32)
+            {
+                let index = Map.converttoIndex(x,y);
+                if (mapArray[index] = 0){
+                    do Screen.setColor(false);
+                    do Screen.drawRectangle((16*x),(16*(y+1)),(16*(x+1)),(16*(y+2)) );
+                }
+
+                if (mapArray[index] = 1)
+                {
+                    do Screen.setColor(true);
+                    do Screen.drawRectangle((16*x),(16*(y+1)),(16*(x+1)),(16*(y+2)) );
+                }
+                let y=y+1;
+
+            }
+            let x = x+1;
+        }
+        return;
+    }
+
+    
+
+}
