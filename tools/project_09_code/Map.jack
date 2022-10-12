@@ -50,23 +50,32 @@ class Map{
 
     {
         var int index,x,y;
+        var int xa,ya,xb,yb;
         let x =0;
-
-        while (x < 15)
+        
+        while (x < 32)
         {
             let y =0;
-            while (y < 32)
+            while (y < 15)
             {
                 let index = Map.converttoIndex(x,y);
                 if (mapArray[index] = 0){
-                    do Screen.setColor(false);
-                    do Screen.drawRectangle((16*x),(16*(y+1)),(16*(x+1)),(16*(y+2)) );
+                    //do Screen.setColor(false);
+                    let xa = 16*x;
+                    let xb = xa+16;
+                    let ya = 16*(y+1);
+                    let yb = ya+15;
+                    do Screen.drawRectangle(xa,ya,xb,yb );
                 }
 
                 if (mapArray[index] = 1)
                 {
-                    do Screen.setColor(true);
-                    do Screen.drawRectangle((16*x),(16*(y+1)),(16*(x+1)),(16*(y+2)) );
+                    //do Screen.setColor(true);
+                    let xa = 16*x;
+                    let xb = xa+15;
+                    let ya = 16*(y+1);
+                    let yb = ya+15;
+                    do Screen.drawRectangle(xa,ya,xb,yb );
                 }
                 let y=y+1;
 
@@ -75,6 +84,234 @@ class Map{
         }
         return;
     }
+
+    method int numneighbours(int posx, int posy)
+    {
+        var int count, temp, index;
+        let count = 0;
+        let index = Map.converttoIndex(posx,posy);
+
+        if (posx = 0) //first coumn
+        {
+            if (posy = 0) //upper left corner, 3 neughbours.
+            {
+               
+                if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+                
+                if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+               
+                if (mapArray[index+33] = 1){
+                    let count = count + 1;
+                }
+                return count;
+            }
+
+            if (posy = 14){ //lower left corner, three neighbours
+                
+                if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+                
+                if (mapArray[index-31] = 1){
+                    let count = count + 1;
+                }
+                
+                if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+                return count;
+            }
+
+            // or its first column but no corners :- 5 neighbours
+            let index = Map.converttoIndex(posx,posy);
+            if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index-31] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+33] = 1){
+                    let count = count + 1;
+                }
+            return count;
+
+        }
+
+        if (posx = 31){ // last column
+            if (posy = 0){ //upper right corner
+                if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+
+                if (mapArray[index+31] = 1){
+                    let count = count + 1;
+                }
+
+                 if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+                return count;
+            }
+
+            if (posy = 14){
+                if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+                 if (mapArray[index-33] = 1){
+                    let count = count + 1;
+                }
+                 if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+                return count;
+            }
+
+            //else we are in last column but no corners and have 5 neighbours
+            if (mapArray[index-33] = 1){
+                    let count = count + 1;
+                }
+
+            if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+
+            if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+
+            if (mapArray[index+31] = 1){
+                    let count = count + 1;
+                }
+
+            if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+            
+            return count;
+            }
+        
+        if (posy = 0){ //top row, not corner
+            if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+31] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+33] = 1){
+                    let count = count + 1;
+                }
+            if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+            return count;
+        }
+
+
+        if (posy = 14){ // bottom row, not cornen
+             if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+             if (mapArray[index-33] = 1){
+                    let count = count + 1;
+                }
+             if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+             if (mapArray[index-31] = 1){
+                    let count = count + 1;
+                }
+             if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+            return count;
+        }
+
+        // else there are 9 neighbours.
+        if (mapArray[index-1] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index-33] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index-32] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index-31] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index+1] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index+33] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index+32] = 1){
+                    let count = count + 1;
+                }
+        if (mapArray[index+31] = 1){
+                    let count = count + 1;
+                }
+        return count;
+        
+    }
+
+    method void celldisplay(int x, int y, boolean color ){
+        do Screen.setColor(color);
+        do Screen.drawRectangle(x*32,(y+1)*32,(x+1)*32,(y+2)*32);
+        return;
+    }
+
+
+    method void updatemap(){ //update the map and also the display accordingly.
+        var int x,y,index, num;
+
+        let x = 0;
+        let index = Map.converttoIndex(x,y);
+       
+
+        while(x < 32){
+            let y = 0;
+            while  (y < 15){
+                let num  = numneighbours(x,y);
+                if (mapArray[index] = 0){ // dead cell
+                    if (num = 3){
+                        let mapArray[index] = 1;
+                        do celldisplay(x,y,true);
+                    }
+                }
+
+                if (mapArray[index] = 1){ // alive cell
+                    if (num = 1){
+                        let mapArray[index] = 0;
+                        do celldisplay(x,y,false);
+                    }
+
+                    if (num > 3){
+                        let mapArray[index] = 0;
+                        do celldisplay(x,y, false);
+                    }
+                }
+                let y = y+1;
+            }
+            let x = x+1;
+
+        }
+        return;
+    }
+
 
     
 

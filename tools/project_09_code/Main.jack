@@ -8,6 +8,8 @@ class Main
     {
         var int i;
         var Array Xpos, Ypos;
+        var Map gamemap;
+
         let numturns = Keyboard.readInt("How many turns? ");
         
         let numpos = Keyboard.readInt("How many starting blocks? ");
@@ -23,18 +25,38 @@ class Main
         }
 
         do Output.printString("Input complete, starting game ");
-        do Sys.wait(3000);
+        do Sys.wait(5000);
         do Screen.clearScreen();
+
+
+        // lets start the game now
+        do Output.moveCursor(0, 5);
+        do Output.printString("World is evolving ! ");
+        do Output.moveCursor(0, 25);
+        do Output.printString("Counter : ");
+        do Screen.drawLine(0,12,511,12);
+
+        let gamemap = Map.new(Xpos,Ypos,numpos);
+        do gamemap.display();
+        let i =0;
+
+        /*while(i < numturns){
+            do gamemap.updatemap();
+           
+            do Output.moveCursor(1, 55);
+            do Output.printInt(i);
+
+            let i = i + 1;
+        }*/
+
+
+
+
+
 
         
 
-        // map = Map.new(Xpos,Ypos)
-        // map. display()
-
-        // while i < numturns
-        // map.update()
-        // map.display
-
+        
         return;
 
     }
