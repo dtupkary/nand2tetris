@@ -1,4 +1,55 @@
-//Sys
+@256
+D=A
+@SP
+M=D
+@Sys.initRET0
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+D=M
+@LCL
+M=D
+@SP
+D=M
+@5
+D=D-A
+@ARG
+M=D
+@Sys.init
+0;JMP
+(Sys.initRET0)//Sys
 //function Sys.init 0
 (Sys.init)
 //push constant 4000	// test THIS and THAT context save
@@ -48,7 +99,7 @@ D=M
 A=M
 M=D
 //call Sys.main 0
-@Sys.mainRET0
+@Sys.mainRET1
 D=A
 @SP
 A=M
@@ -95,7 +146,7 @@ D=D-A
 M=D
 @Sys.main
 0;JMP
-(Sys.mainRET0)//pop temp 1
+(Sys.mainRET1)//pop temp 1
 @R5
 D=A
 @1
@@ -271,7 +322,7 @@ M=D
 @SP
 M=M+1
 //call Sys.add12 1
-@Sys.add12RET1
+@Sys.add12RET2
 D=A
 @SP
 A=M
@@ -318,7 +369,7 @@ D=D-A
 M=D
 @Sys.add12
 0;JMP
-(Sys.add12RET1)//pop temp 0
+(Sys.add12RET2)//pop temp 0
 @R5
 D=A
 @0
