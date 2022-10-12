@@ -1,291 +1,355 @@
-#!/usr/bin/env python
-'''
-VM Translator
-Daniel Kronovet
-kronovet@gmail.com
-'''
+#VM_translator for Chapter 8 of the Nand2Tetris course.
 
+
+import sys
 import os
 
-COMMENT = '//'
 
-# Create one per input file
-class Parser(object):
-    def __init__(self, vm_filename):
-        self.vm_filename = vm_filename
-        self.vm = open(vm_filename, 'r')
-        self.EOF = False
-        self.commands = self.commands_dict()
-        self.curr_instruction = None
-        self.initialize_file()
+global ARTHIMETIC_LIST
+ARITHMETIC_LIST = ["add","sub","neg","eq","gt","lt","and","or","not"]
 
-    #######
-    ### API
-    def advance(self):
-        self.curr_instruction = self.next_instruction
-        self.load_next_instruction()
+global location_dist
+location_dict = {"SP":"R0", "local": "R1", "argument":"R2", "this":"R3", "that":"R4","temp":"R5", "static":"R16"}
 
-    @property
-    def has_more_commands(self):
-        return not self.EOF
 
-    @property
-    def command_type(self):
-        return self.commands.get(self.curr_instruction[0].lower())
 
-    @property
+#Class that parses through a given file
+class Parser:
+
+    
+    def __init__(self, filename):
+        self.filename = filename # set the file that we must read.
+        self.file = open(self.filename, 'r') #open the file
+        self.current_inst = self.file.readline() #read the first line.
+
+    def read_next_instruction(self):
+        self.current_inst=self.file.readline() #read next line
+    
+    def is_instruction(self): #check if current line is instruction or not. 
+        self.current_inst=self.current_inst.strip()
+        if len(self.current_inst)==0 or self.current_inst.startswith("//"):
+            return False
+        else:
+            return True
+    
+    def commandType(self): #returnns command type of current command
+        current_command = self.current_inst.split()
+        if current_command[0] in ARITHMETIC_LIST : 
+            return "C_ARITHMETIC"
+        elif current_command[0] ==  "push" :
+            return "C_PUSH"
+        elif current_command[0] == "pop" :
+            return "C_POP"
+        elif current_command[0] == "goto" :
+            return "C_GOTO"
+        elif current_command[0] == "if-goto" :
+            return "C_IF"
+        elif current_command[0] == "function" :
+            return "C_FUNCTION"
+        elif current_command[0] == "return" :
+            return "C_RETURN"
+        elif current_command[0] == "call" :
+            return "C_CALL"
+        elif current_command[0] == "label" :
+            return "C_LABEL"
+        else:
+            return("Command invalid")
+    
     def arg1(self):
-        '''Math operation if C_ARITHMETIC'''
-        if self.command_type == 'C_ARITHMETIC':
-            return self.argn(0)
-        return self.argn(1)
-
-    @property
+        current_command = self.current_inst.split()
+        if self.commandType() == "C_ARITHMETIC":
+            return current_command[0]
+        elif self.commandType() == "C_RETURN":
+            print("WARNING : Cannot call arg1 on RETURNN commands")
+        return current_command[1]
+    
     def arg2(self):
-        '''Only return if C_PUSH, C_POP, C_FUNCTION, C_CALL'''
-        return self.argn(2)
-
-    ### END API
-    ###########
-    def close(self):
-        self.vm.close()
-
-    def initialize_file(self):
-        self.vm.seek(0)
-        self.load_next_instruction()
-
-    def load_next_instruction(self, line=None):
-        loaded = False
-        while not loaded and not self.EOF:
-            tell = self.vm.tell()
-            line = self.vm.readline().strip()
-            if self.is_instruction(line):
-                self.next_instruction = line.split(COMMENT)[0].strip().split()
-                loaded = True
-            if tell == self.vm.tell(): # File position did not change
-                self.EOF = True
-
-    def is_instruction(self, line):
-        return line and line[:2] != COMMENT
-
-    def argn(self, n):
-        if len(self.curr_instruction) >= n+1:
-            return self.curr_instruction[n]
-        return None
-
-    def commands_dict(self):
-        return {
-            'add': 'C_ARITHMETIC',
-            'sub': 'C_ARITHMETIC',
-            'neg': 'C_ARITHMETIC',
-             'eq': 'C_ARITHMETIC',
-             'gt': 'C_ARITHMETIC',
-             'lt': 'C_ARITHMETIC',
-            'and': 'C_ARITHMETIC',
-             'or': 'C_ARITHMETIC',
-            'not': 'C_ARITHMETIC',
-           'push': 'C_PUSH',
-            'pop': 'C_POP',
-          'label': 'C_LABEL',
-           'goto': 'C_GOTO',
-        'if-goto': 'C_IF',
-       'function': 'C_FUNCTION',
-         'return': 'C_RETURN',
-           'call': 'C_CALL'
-        }
+        current_command = self.current_inst.split()
+        return current_command[2]
 
 
-class CodeWriter(object):
-    '''Write .asm files
+class trivial_CodeWriter:
+    def __init__(self, filename):
+        self.filename = filename # set the file that we must write into
+        self.file = open(self.filename, 'w') #open the file
+        return
+    
+    def write(self, line):
+        self.file.write(line+"\n")
+        return
 
-    Contract between methods:
+
+class CodeWriter:
+
+    """
+     Contract between methods:
     1. Contents of the A and D registries are not guaranteed,
         so methods must set them to the values they need.
     2. Methods must always leave @SP pointing to the correct location.
-    '''
-    def __init__(self, asm_filename):
-        self.asm = open(asm_filename, 'w')
-        self.curr_file = None
-        self.addresses = self.address_dict()
-        self.line_count = 0
-        self.bool_count = 0 # Number of boolean comparisons so far
-        self.call_count = 0 # Number of function calls so far
+    """
 
-    #######
-    ### API
-    def write_init(self):
-        self.write('@256')
-        self.write('D=A')
-        self.write('@SP')
-        self.write('M=D')
-        self.write_call('Sys.init', 0)
-        # self.write('@Sys.init')
-        # self.write('0;JMP')
+    def __init__(self, filename):
+        self.filename = filename # set the file we must write into
+        self.file = open(self.filename, 'w') #open the file
+        self.jump_index = 0
+        self.call_index = 0
+        self.current_parsing_file = ""
+        self.function_name = "" # we can initialize this to zero, coz we need it to produce labels, and labels don't appear outside of functions :P
 
-    def set_file_name(self, vm_filename):
-        '''Reset pointers'''
-        self.curr_file = vm_filename.replace('.vm', '').split('/')[-1]
-        # self.curr_file = vm_filename.replace('.vm', '')
-        self.write('//////', code=False)
-        self.write('// {}'.format(self.curr_file), code=False)
+        #see https://www.coursera.org/learn/nand2tetris2/programming/p3jZ1/project-8/discussions/threads/jhdQ9ZxBEeifVAor9mp_ug
+        return
 
-    def write_arithmetic(self, operation):
-        '''Apply operation to top of stack'''
-        if operation not in ['neg', 'not']: # Binary operator
-            self.pop_stack_to_D()
+    def set_parsing_file(self,parser_object):
+        input_file_name = parser_object.filename.split("/")[-1]
+        self.current_parsing_file = input_file_name.replace(".vm","")
+        self.file.write("//{}\n".format(self.current_parsing_file)) # so we know when new file writing starts.
+
+
+    def write(self,parser_object):
+        command_type = parser_object.commandType()
+        self.file.write("//{}\n".format(parser_object.current_inst)) #so we know what line is being written
+        if command_type == "C_PUSH" or command_type == "C_POP":
+            self.writePushPop(parser_object)
+        if command_type =="C_ARITHMETIC":
+            self.writeArithmetic(parser_object)
+
+        if command_type == "C_GOTO":
+            self.writeGoto(parser_object)
+        if command_type == "C_IF":
+            self.writeIf(parser_object)
+        if command_type == "C_LABEL":
+            self.writeLabel(parser_object)
+
+        if command_type == "C_CALL":
+            self.writeCall(parser_object)
+        if command_type == "C_FUNCTION":
+            self.writeFunction(parser_object)
+        if command_type == "C_RETURN":
+            self.writeReturn(parser_object)
+        
+        
+    
+    def writeArithmetic(self,parser_object):
+        #write
+        operation = parser_object.arg1() 
+       
+        if operation not in ['neg', 'not']: # Binary operator (comments refer to binary operations)
+            self.pop_stack_to_D() #D stores y.
         self.decrement_SP()
-        self.set_A_to_stack()
+        self.set_A_to_stack() # M = x
 
-        if operation == 'add': # Arithmetic operators
-            self.write('M=M+D')
-        elif operation == 'sub':
-            self.write('M=M-D')
-        elif operation == 'and':
-            self.write('M=M&D')
-        elif operation == 'or':
-            self.write('M=M|D')
-        elif operation == 'neg':
-            self.write('M=-M')
-        elif operation == 'not':
-            self.write('M=!M')
-        elif operation in ['eq', 'gt', 'lt']: # Boolean operators
-            self.write('D=M-D')
-            self.write('@BOOL{}'.format(self.bool_count))
 
-            if operation == 'eq':
-                self.write('D;JEQ') # if x == y, x - y == 0
-            elif operation == 'gt':
-                self.write('D;JGT') # if x > y, x - y > 0
-            elif operation == 'lt':
-                self.write('D;JLT') # if x < y, x - y < 0
+        if operation == "add":
+            self.file.write("M=M+D\n")
+        elif operation == "sub":
+            self.file.write("M=M-D\n")
+        elif operation == "and":
+            self.file.write("M=D&M\n")
+        elif operation == "or":
+            self.file.write("M=D|M\n")
+        elif operation == "neg":
+            self.file.write("M=-M\n")
+        elif operation == "not":
+            self.file.write("M=!M\n")
+        
 
+        elif operation in ["eq", "gt", "lt"]:
+
+            self.file.write("D=M-D\n") 
+            self.file.write("M=-1\n") #put M as true tentatively.
+            self.file.write("@JMPPOINT{}".format(str(self.jump_index))+"\n") #prep to jump
+            
+            if operation =="eq":
+                self.file.write("D;JEQ\n") #Jump to label is true   
+            if operation == "gt":
+                self.file.write("D;JGT\n")
+            if operation =="lt":
+                self.file.write("D;JLT\n")
+                #following assembly code sets M to false, and is only exected if statement is false
             self.set_A_to_stack()
-            self.write('M=0') # False
-            self.write('@ENDBOOL{}'.format(self.bool_count))
-            self.write('0;JMP')
+            self.file.write("M=0\n") #M is false
+            self.file.write("(JMPPOINT{}".format(str(self.jump_index))+")\n")
+            self.jump_index=self.jump_index+1
 
-            self.write('(BOOL{})'.format(self.bool_count), code=False)
-            self.set_A_to_stack()
-            self.write('M=-1') # True
 
-            self.write('(ENDBOOL{})'.format(self.bool_count), code=False)
-            self.bool_count += 1
-        else:
-            self.raise_unknown(operation)
+
         self.increment_SP()
+                
+        return
 
-    def write_push_pop(self, command, segment, index):
-        self.resolve_address(segment, index)
-        if command == 'C_PUSH': # load M[address] to D
-            if segment == 'constant':
-                self.write('D=A')
+
+    def writePushPop(self,parser_object):
+        #write 
+        command_type = parser_object.commandType()
+       
+        arg1 = parser_object.arg1() #segment
+        arg2 = parser_object.arg2() #index
+        
+        if command_type == "C_PUSH":
+            self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
+            if arg1 == "constant":
+                self.file.write("D=A\n") #D stores value to be pushed
             else:
-                self.write('D=M')
+                self.file.write("D=M\n") # D stores value to be pushed
             self.push_D_to_stack()
-        elif command == 'C_POP': # load D to M[address]
-            self.write('D=A')
-            self.write('@R13') # Store resolved address in R13
-            self.write('M=D')
-            self.pop_stack_to_D()
-            self.write('@R13')
-            self.write('A=M')
-            self.write('M=D')
+            
+        elif command_type == "C_POP":
+            self.resolve_address(arg1,arg2) # A stores the location of object to be pushed / popped.
+            self.file.write("D=A\n")
+            self.file.write("@R13\n")
+            self.file.write("M=D\n") #R13 stores location of object to be ppushed / popped.
+            self.pop_stack_to_D() # D stores value to be popped
+            #but now A might be changed, we need A to be the content of R13
+            self.file.write("@R13\n")
+            self.file.write("A=M\n")
+            self.file.write("M=D\n") #pop it to 
+            
         else:
-            self.raise_unknown(command)
+            raise Exception("Command type of parser and codewriter not matching")
 
-    def write_label(self, label):
-        self.write('({}${})'.format(self.curr_file, label), code=False)
+    #Two functions in the same VM file can have identical label names, so you need to include the function name.
+    #Because function names must be unique across all VM files in the program (so that they can be called), you do not need to include the VM File name.
+    def writeGoto(self,parser_object):
+        label = parser_object.arg1()
+        self.file.write("@{}.{}\n".format(self.function_name,label))
+        self.file.write("0;JMP\n")
 
-    def write_goto(self, label):
-        self.write('@{}${}'.format(self.curr_file, label))
-        self.write('0;JMP')
-
-    def write_if(self, label):
+    def writeLabel(self,parser_object):
+        label = parser_object.arg1()
+        self.file.write("({}.{})\n".format(self.function_name,label))
+    
+    def writeIf(self,parser_object):
+        label = parser_object.arg1()
         self.pop_stack_to_D()
-        self.write('@{}${}'.format(self.curr_file, label))
-        self.write('D;JNE')
+        self.file.write("@{}.{}\n".format(self.function_name,label))
+        self.file.write("D;JNE\n")
 
-    def write_function(self, function_name, num_locals):
-        # (f)
-        self.write('({})'.format(function_name), code=False)
 
-        # k times: push 0
-        for _ in xrange(num_locals): # Initialize local vars to 0
-            self.write('D=0')
+
+    def writeFunction(self,parser_object):
+        num_local = int(parser_object.arg2())
+        self.function_name = parser_object.arg1()
+        self.file.write("({})\n".format(self.function_name))
+        for i in range(0,num_local):
+            self.file.write("D=0\n") 
             self.push_D_to_stack()
+        
+    def writeCall(self, parser_object):
+        #We end the assembly code for call with (returnAddress). Thus, after the call ends (Via return), the execution must 
+        # proceed by starting execution form the label of return Address..
 
-    def write_call(self, function_name, num_args):
-        RET = function_name + 'RET' +  str(self.call_count) # Unique return label
-        self.call_count += 1
+        # note because we might call a function multiple times, eeach time the return address must be unique ...
 
-        # push return-address
-        self.write('@' + RET)
-        self.write('D=A')
+        function_name = parser_object.arg1()
+        nargs = int(parser_object.arg2())
+
+        ret_address = function_name + "RET"+str(self.call_index)
+        self.call_index += 1
+
+        #push return-address
+        self.file.write("@{}\n".format(ret_address))
+        self.file.write("D=A\n")
         self.push_D_to_stack()
 
-        # push LCL
-        # push ARG
-        # push THIS
-        # push THAT
-        for address in ['@LCL', '@ARG', '@THIS', '@THAT']:
-            self.write(address)
-            self.write('D=M')
+        #push LCL, ARG, THIS, THAT
+
+        for symbol in ["LCL","ARG","THIS","THAT"]:
+            self.file.write("@{}\n".format(symbol))
+            self.file.write("D=M\n")
             self.push_D_to_stack()
+        
+        #LCL = SP
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
 
-        # LCL = SP
-        self.write('@SP')
-        self.write('D=M')
-        self.write('@LCL')
-        self.write('M=D')
+        #ARG = SP - narg - 5
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@{}\n".format(nargs+5))
+        self.file.write("D=D-A\n")
+        self.file.write("@ARG\n")
+        self.file.write("M=D\n")
+        
+        #goto f.
 
-        # ARG = SP-n-5
-        # self.write('@SP') # Redundant b/c of prev two commands
-        # self.write('D=M') # Redundant b/c of prev two commands
-        self.write('@' + str(num_args + 5))
-        self.write('D=D-A')
-        self.write('@ARG')
-        self.write('M=D')
+        self.file.write("@{}\n".format(function_name))
+        self.file.write("0;JMP\n")
+         
+        self.file.write('({})'.format(ret_address))
 
-        # goto f
-        self.write('@' + function_name)
-        self.write('0;JMP')
+    def writeCall_functionnameinput(self, function_name, nargs):
+        #We end the assembly code for call with (returnAddress). Thus, after the call ends (Via return), the execution must 
+        # proceed by starting execution form the label of return Address..
 
-        # (return_address)
-        self.write('({})'.format(RET), code=False)
+        # note because we might call a function multiple times, eeach time the return address must be unique ...
 
-    def write_return(self):
-        # Temporary variables
-        FRAME = 'R13'
-        RET = 'R14'
+        ret_address = function_name + "RET"+str(self.call_index)
+        self.call_index += 1
 
-        # FRAME = LCL
-        self.write('@LCL')
-        self.write('D=M')
-        self.write('@' + FRAME)
-        self.write('M=D')
+        #push return-address
+        self.file.write("@{}\n".format(ret_address))
+        self.file.write("D=A\n")
+        self.push_D_to_stack()
 
-        # RET = *(FRAME-5)
-        # Can't be included in iterator b/c value will be overwritten if num_args=0
-        self.write('@' + FRAME)
-        self.write('D=M') # Save start of frame
-        self.write('@5')
-        self.write('D=D-A') # Adjust address
-        self.write('A=D') # Prepare to load value at address
-        self.write('D=M') # Store value
-        self.write('@' + RET)
-        self.write('M=D') # Save value
+        #push LCL, ARG, THIS, THAT
+
+        for symbol in ["LCL","ARG","THIS","THAT"]:
+            self.file.write("@{}\n".format(symbol))
+            self.file.write("D=M\n")
+            self.push_D_to_stack()
+        
+        #LCL = SP
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+
+        #ARG = SP - narg - 5
+        self.file.write("@SP\n")
+        self.file.write("D=M\n")
+        self.file.write("@{}\n".format(nargs+5))
+        self.file.write("D=D-A\n")
+        self.file.write("@LCL\n")
+        self.file.write("M=D\n")
+        
+        #goto f.
+
+        self.file.write("@{}\n".format(function_name))
+        self.file.write("0;JMP\n")
+
+
+    def writeReturn(self,parser_object):
+
+        #R14 = frame
+        #R15 = ret
+
+        self.file.write("@LCL\n")
+        self.file.write("D=M\n") 
+        self.file.write("@R14\n")
+        self.file.write("M=D\n") #saves LCL in R14
+
+        self.file.write("@R14\n")
+        self.file.write("D=M\n")
+        self.file.write("@5\n")
+        self.file.write("D=D-A\n") #D is now the address that stores return address value.
+        self.file.write("A=D\n") # A is now the address that stores the return address value.
+        self.file.write("D=M\n") # D is now the return address value. 
+        self.file.write("@R15\n")
+        self.file.write("M=D\n") #saves return address to R15
 
         # *ARG = pop()
         self.pop_stack_to_D()
-        self.write('@ARG')
-        self.write('A=M')
-        self.write('M=D')
+        self.file.write('@ARG\n')
+        self.file.write('A=M\n')
+        self.file.write('M=D\n')
 
         # SP = ARG+1
-        self.write('@ARG')
-        self.write('D=M')
-        self.write('@SP')
-        self.write('M=D+1')
+        self.file.write('@ARG\n')
+        self.file.write('D=M\n')
+        self.file.write('@SP\n')
+        self.file.write('M=D+1\n')
 
         # THAT = *(FRAME-1)
         # THIS = *(FRAME-2)
@@ -293,138 +357,165 @@ class CodeWriter(object):
         # LCL = *(FRAME-4)
         offset = 1
         for address in ['@THAT', '@THIS', '@ARG', '@LCL']:
-            self.write('@' + FRAME)
-            self.write('D=M') # Save start of frame
-            self.write('@' + str(offset))
-            self.write('D=D-A') # Adjust address
-            self.write('A=D') # Prepare to load value at address
-            self.write('D=M') # Store value
-            self.write(address)
-            self.write('M=D') # Save value
+            self.file.write('@R14\n')
+            self.file.write('D=M\n') # Save start of frame
+            self.file.write('@{}\n'.format(str(offset)))
+            self.file.write('D=D-A\n') # Adjust address
+            self.file.write('A=D\n') # Prepare to load value at address
+            self.file.write('D=M\n') # Store value
+            self.file.write(address+"\n")
+            self.file.write('M=D\n') # Save value
             offset += 1
 
         # goto RET
-        self.write('@' + RET)
-        self.write('A=M')
-        self.write('0;JMP')
+        self.file.write('@R15\n')
+        self.file.write('A=M\n')
+        self.file.write('0;JMP\n')
 
-    ### END API
-    ###########
-    def write(self, command, code=True):
-        self.asm.write(command)
-        if code:
-            self.asm.write(' // ' + str(self.line_count))
-            self.line_count += 1
-        self.asm.write('\n')
+    def setup_init(self):
+        self.file.write('@256\n')
+        self.file.write('D=A\n')
+        self.file.write('@SP\n')
+        self.file.write('M=D\n') #stack pointer is set to 256 
+        self.writeCall_functionnameinput('Sys.init', 0)
+        # self.file.write('@Sys.init')
+        # self.file.write('0;JMP')
 
-    def close(self):
-        self.asm.close()
 
-    def raise_unknown(self, argument):
-        raise ValueError('{} is an invalid argument'.format(argument))
 
-    def resolve_address(self, segment, index):
-        '''Resolve address to A register'''
-        address = self.addresses.get(segment)
-        if segment == 'constant':
-            self.write('@' + str(index))
-        elif segment == 'static':
-            self.write('@' + self.curr_file + '.' + str(index))
-        elif segment in ['pointer', 'temp']:
-            self.write('@R' + str(address + index)) # Address is an int
-        elif segment in ['local', 'argument', 'this', 'that']:
-            self.write('@' + address) # Address is a string
-            self.write('D=M')
-            self.write('@' + str(index))
-            self.write('A=D+A') # D is segment base
-        else:
-            self.raise_unknown(segment)
 
-    def address_dict(self):
-        return {
-            'local': 'LCL', # Base R1
-            'argument': 'ARG', # Base R2
-            'this': 'THIS', # Base R3
-            'that': 'THAT', # Base R4
-            'pointer': 3, # Edit R3, R4
-            'temp': 5, # Edit R5-12
-            # R13-15 are free
-            'static': 16, # Edit R16-255
-        }
 
-    def push_D_to_stack(self):
-        '''Push from D onto top of stack, increment @SP'''
-        self.write('@SP') # Get current stack pointer
-        self.write('A=M') # Set address to current stack pointer
-        self.write('M=D') # Write data to top of stack
-        self.increment_SP()
 
-    def pop_stack_to_D(self):
-        '''Decrement @SP, pop from top of stack onto D'''
-        self.decrement_SP()
-        self.write('A=M') # Set address to current stack pointer
-        self.write('D=M') # Get data from top of stack
+
+    #Helper functions
 
     def decrement_SP(self):
-        self.write('@SP')
-        self.write('M=M-1')
+        self.file.write('@SP\n')
+        self.file.write('M=M-1\n')
 
     def increment_SP(self):
-        self.write('@SP')
-        self.write('M=M+1')
+        self.file.write('@SP\n')
+        self.file.write('M=M+1\n')
 
     def set_A_to_stack(self):
-        self.write('@SP')
-        self.write('A=M')
+        self.file.write('@SP\n')
+        self.file.write('A=M\n')
+
+    def resolve_address(self,segment,index): #set the value of A to be the location of object to be pushed / popped
+
+        if segment=="constant":
+            self.file.write("@"+index+"\n") #A stores the constant value (NOT THE ADDRESS!!)
+        
+            
+        if segment in ["local","argument","this","that"]:
+            self.file.write("@"+location_dict[segment]+"\n") # A stores location of location of base of segment.
+            self.file.write("D=M\n")# D Stores location of based of segment
+            self.file.write("@"+index+"\n")# A stores index
+            self.file.write("A=D+A\n")# A stores location of segment[index].
+            
+
+        if segment == "pointer":
+            self.file.write("@R3\n") #A stores location of base of segment
+            self.file.write("D=A\n") # D Stores location of based of segment
+            self.file.write("@"+index+"\n") # A stores indeex
+            self.file.write("A=D+A\n") # A stores location of segment[index]/
+            
+        if segment == "temp":
+            self.file.write("@R5\n") #A stores location of base of segment
+            self.file.write("D=A\n") # D Stores location of based of segment
+            self.file.write("@"+index+"\n") # A stores indeex
+            self.file.write("A=D+A\n") # A stores location of segment[index]/
+
+        if segment == "static":
+            # we need first the filename and thenwe can index as file.segment
+            name = self.current_parsing_file+"."+index
+            self.file.write("@"+name+"\n")
 
 
-class Main(object):
-    def __init__(self, file_path):
-        self.parse_files(file_path)
-        self.cw = CodeWriter(self.asm_file)
-        self.cw.write_init()
-        for vm_file in self.vm_files:
-            self.translate(vm_file)
-        self.cw.close()
+    def push_D_to_stack(self):
+        self.file.write("@SP\n") #A stores the location of the location of SP
+        self.file.write("A=M\n") #A stores location of SP
+        self.file.write("M=D\n") # add value to stack
+        self.file.write("@SP\n") 
+        self.file.write("M=M+1\n") #increment stack
+        
+    def pop_stack_to_D(self):
+        self.file.write("@SP\n") # A stores location of locationn of SP
+        self.file.write("M=M-1\n") #decrement stack.
+        self.file.write("A=M\n") # A stores location of SP
+        self.file.write("D=M\n") #D stores top of stack
+        
 
-    def parse_files(self, file_path):
-        if '.vm' in file_path:
-            self.asm_file = file_path.replace('.vm', '.asm')
-            self.vm_files = [file_path]
-        else:
-            file_path = file_path[:-1] if file_path[-1] == '/' else file_path
-            path_elements = file_path.split('/')
-            path = '/'.join(path_elements)
-            self.asm_file = path + '/' + path_elements[-1] + '.asm'
-            dirpath, dirnames, filenames = next(os.walk(file_path), [[],[],[]])
-            vm_files = filter(lambda x: '.vm' in x, filenames)
-            self.vm_files = [path + '/' +  vm_file for vm_file in vm_files]
 
-    def translate(self, vm_file):
-        parser = Parser(vm_file)
-        self.cw.set_file_name(vm_file)
-        while parser.has_more_commands:
-            parser.advance()
-            self.cw.write('// ' + ' '.join(parser.curr_instruction), code=False)
-            if parser.command_type == 'C_PUSH':
-                self.cw.write_push_pop('C_PUSH', parser.arg1, int(parser.arg2))
-            elif parser.command_type == 'C_POP':
-                self.cw.write_push_pop('C_POP', parser.arg1, int(parser.arg2))
-            elif parser.command_type == 'C_ARITHMETIC':
-                self.cw.write_arithmetic(parser.arg1)
-            elif parser.command_type == 'C_LABEL':
-                self.cw.write_label(parser.arg1)
-            elif parser.command_type == 'C_GOTO':
-                self.cw.write_goto(parser.arg1)
-            elif parser.command_type == 'C_IF':
-                self.cw.write_if(parser.arg1)
-            elif parser.command_type == 'C_FUNCTION':
-                self.cw.write_function(parser.arg1, int(parser.arg2))
-            elif parser.command_type == 'C_CALL':
-                self.cw.write_call(parser.arg1, int(parser.arg2))
-            elif parser.command_type == 'C_RETURN':
-                self.cw.write_return()
-        parser.close()
+    
+        
 
-file_path = "./FunctionCalls/FibonacciElement"
-Main(file_path)
+
+
+
+
+def main(parser,cw): #simple function that takes a parser, codewriter and starts translating
+    while parser.current_inst != "": #while parser has not reached end of while
+        if parser.is_instruction():
+            cw.write(parser) 
+        parser.read_next_instruction()
+
+    print("*** Translation completed ***")
+
+
+
+
+
+#input_path = sys.argv[0]
+#print("Input path is ",input," \n. Starting Translation \n ")
+input_path = sys.argv[1]
+
+
+if input_path.endswith(".vm"): #end of path is .vm, so file
+    output_file_path = input_path.replace(".vm",".asm")
+    
+    parser= Parser(input_path)
+    cw = CodeWriter(output_file_path)
+    #cw.setup_init()
+    cw.set_parsing_file(parser)
+    main(parser,cw)
+
+   
+else : #its a directory
+    output_file_path = input_path+"/"+input_path.split("/")[-1]+".asm"
+
+    cw = CodeWriter(output_file_path)
+    cw.setup_init()
+
+    for file_path in os.listdir(input_path):
+        if file_path.endswith(".vm"):
+            parser = Parser(input_path +"/"+file_path)
+            cw.set_parsing_file(parser) #so that codewriter knows which file it is parsing
+            main(parser,cw)
+    
+
+
+
+
+
+## trivial codewriter check
+
+"""
+parser= Parser(input_path)
+cw = trivial_CodeWriter(output_file_path)
+
+while parser.current_inst != "": #while parser has not reached end of while
+    if parser.is_instruction():
+        cw.write(parser.current_inst + "||"+parser.commandType() ) 
+    parser.read_next_instruction()
+
+print("done")
+"""
+
+
+
+
+
+    
+
+    
