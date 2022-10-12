@@ -469,8 +469,8 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 
 #input_path = sys.argv[0]
 #print("Input path is ",input," \n. Starting Translation \n ")
-#input_path = sys.argv[1]
-input_path = "FunctionCalls/NestedCall"
+input_path = sys.argv[1]
+
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
