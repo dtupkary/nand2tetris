@@ -91,11 +91,11 @@ M=D
 D=M
 @5
 D=D-A
-@LCL
+@ARG
 M=D
 @Sys.main
 0;JMP
-//pop temp 1
+(Sys.mainRET0)//pop temp 1
 @R5
 D=A
 @1
@@ -314,11 +314,11 @@ M=D
 D=M
 @6
 D=D-A
-@LCL
+@ARG
 M=D
 @Sys.add12
 0;JMP
-//pop temp 0
+(Sys.add12RET1)//pop temp 0
 @R5
 D=A
 @0

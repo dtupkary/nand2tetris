@@ -1,61 +1,7 @@
-@256
-D=A
-@SP
-M=D
-@Sys.initRET0
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-// pushed D to stack 
-@LCL
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-// pushed D to stack 
-@ARG
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-// pushed D to stack 
-@THIS
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-// pushed D to stack 
-@THAT
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-// pushed D to stack 
-@SP
-D=M
-@LCL
-M=D
-@SP
-D=M
-@5
-D=D-A
-@LCL
-M=D
-@Sys.init
-0;JMP
 //Main
+//function Main.fibonacci 0
 (Main.fibonacci)
+//push argument 0
 @R2
 D=M
 @0
@@ -66,8 +12,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//push constant 2
 @2
 D=A
 @SP
@@ -75,13 +20,11 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//lt                     // checks if n<2
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -96,16 +39,19 @@ M=0
 (JMPPOINT0)
 @SP
 M=M+1
+//if-goto IF_TRUE
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @Main.fibonacci.IF_TRUE
 D;JNE
+//goto IF_FALSE
 @Main.fibonacci.IF_FALSE
 0;JMP
+//label IF_TRUE          // if n<2, return n
 (Main.fibonacci.IF_TRUE)
+//push argument 0
 @R2
 D=M
 @0
@@ -116,8 +62,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//return
 @LCL
 D=M
 @R14
@@ -134,7 +79,6 @@ M=D
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @ARG
 A=M
 M=D
@@ -177,7 +121,9 @@ M=D
 @R15
 A=M
 0;JMP
+//label IF_FALSE         // if n>=2, returns fib(n-2)+fib(n-1)
 (Main.fibonacci.IF_FALSE)
+//push argument 0
 @R2
 D=M
 @0
@@ -188,8 +134,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//push constant 2
 @2
 D=A
 @SP
@@ -197,13 +142,11 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//sub
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -211,14 +154,14 @@ A=M
 M=M-D
 @SP
 M=M+1
-@Main.fibonacciRET1
+//call Main.fibonacci 1  // computes fib(n-2)
+@Main.fibonacciRET0
 D=A
 @SP
 A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @LCL
 D=M
 @SP
@@ -226,7 +169,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @ARG
 D=M
 @SP
@@ -234,7 +176,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THIS
 D=M
 @SP
@@ -242,7 +183,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THAT
 D=M
 @SP
@@ -250,7 +190,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @SP
 D=M
 @LCL
@@ -259,10 +198,11 @@ M=D
 D=M
 @6
 D=D-A
-@LCL
+@ARG
 M=D
 @Main.fibonacci
 0;JMP
+(Main.fibonacciRET0)//push argument 0
 @R2
 D=M
 @0
@@ -273,8 +213,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//push constant 1
 @1
 D=A
 @SP
@@ -282,13 +221,11 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//sub
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -296,14 +233,14 @@ A=M
 M=M-D
 @SP
 M=M+1
-@Main.fibonacciRET2
+//call Main.fibonacci 1  // computes fib(n-1)
+@Main.fibonacciRET1
 D=A
 @SP
 A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @LCL
 D=M
 @SP
@@ -311,7 +248,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @ARG
 D=M
 @SP
@@ -319,7 +255,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THIS
 D=M
 @SP
@@ -327,7 +262,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THAT
 D=M
 @SP
@@ -335,7 +269,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @SP
 D=M
 @LCL
@@ -344,15 +277,15 @@ M=D
 D=M
 @6
 D=D-A
-@LCL
+@ARG
 M=D
 @Main.fibonacci
 0;JMP
+(Main.fibonacciRET1)//add                    // returns fib(n-1) + fib(n-2)
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -360,6 +293,7 @@ A=M
 M=M+D
 @SP
 M=M+1
+//return
 @LCL
 D=M
 @R14
@@ -376,7 +310,6 @@ M=D
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @ARG
 A=M
 M=D
@@ -420,7 +353,9 @@ M=D
 A=M
 0;JMP
 //Sys
+//function Sys.init 0
 (Sys.init)
+//push constant 4
 @4
 D=A
 @SP
@@ -428,16 +363,14 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
-@Main.fibonacciRET3
+//call Main.fibonacci 1   // computes the 4'th fibonacci element
+@Main.fibonacciRET2
 D=A
 @SP
 A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @LCL
 D=M
 @SP
@@ -445,7 +378,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @ARG
 D=M
 @SP
@@ -453,7 +385,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THIS
 D=M
 @SP
@@ -461,7 +392,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @THAT
 D=M
 @SP
@@ -469,7 +399,6 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
 @SP
 D=M
 @LCL
@@ -478,10 +407,12 @@ M=D
 D=M
 @6
 D=D-A
-@LCL
+@ARG
 M=D
 @Main.fibonacci
 0;JMP
+(Main.fibonacciRET2)//label WHILE
 (Sys.init.WHILE)
+//goto WHILE              // loops infinitely
 @Sys.init.WHILE
 0;JMP

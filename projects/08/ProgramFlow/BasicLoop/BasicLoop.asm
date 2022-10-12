@@ -1,4 +1,5 @@
 //BasicLoop
+//push constant 0
 @0
 D=A
 @SP
@@ -6,8 +7,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//pop local 0         // initializes sum = 0
 @R1
 D=M
 @0
@@ -19,12 +19,12 @@ M=D
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @R13
 A=M
 M=D
-// completed a pop 
+//label LOOP_START
 (.LOOP_START)
+//push argument 0
 @R2
 D=M
 @0
@@ -35,8 +35,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//push local 0
 @R1
 D=M
 @0
@@ -47,13 +46,11 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//add
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -61,6 +58,7 @@ A=M
 M=M+D
 @SP
 M=M+1
+//pop local 0	        // sum = sum + counter
 @R1
 D=M
 @0
@@ -72,11 +70,10 @@ M=D
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @R13
 A=M
 M=D
-// completed a pop 
+//push argument 0
 @R2
 D=M
 @0
@@ -87,8 +84,7 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//push constant 1
 @1
 D=A
 @SP
@@ -96,13 +92,11 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//sub
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @SP
 M=M-1
 @SP
@@ -110,6 +104,7 @@ A=M
 M=M-D
 @SP
 M=M+1
+//pop argument 0      // counter--
 @R2
 D=M
 @0
@@ -121,11 +116,10 @@ M=D
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @R13
 A=M
 M=D
-// completed a pop 
+//push argument 0
 @R2
 D=M
 @0
@@ -136,15 +130,14 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 
+//if-goto LOOP_START  // If counter != 0, goto LOOP_START
 @SP
 M=M-1
 A=M
 D=M
-// popped stack to D 
 @.LOOP_START
 D;JNE
+//push local 0
 @R1
 D=M
 @0
@@ -155,5 +148,3 @@ A=M
 M=D
 @SP
 M=M+1
-// pushed D to stack 
-// completed a push 

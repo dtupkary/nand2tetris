@@ -107,7 +107,7 @@ class CodeWriter:
 
     def write(self,parser_object):
         command_type = parser_object.commandType()
-        self.file.write("//{}\n".format(parser_object.current_inst))
+        self.file.write("//{}\n".format(parser_object.current_inst)) #so we know what line is being written
         if command_type == "C_PUSH" or command_type == "C_POP":
             self.writePushPop(parser_object)
         if command_type =="C_ARITHMETIC":
@@ -126,7 +126,9 @@ class CodeWriter:
             self.writeFunction(parser_object)
         if command_type == "C_RETURN":
             self.writeReturn(parser_object)
-
+        
+        
+    
     def writeArithmetic(self,parser_object):
         #write
         operation = parser_object.arg1() 
@@ -267,13 +269,15 @@ class CodeWriter:
         self.file.write("D=M\n")
         self.file.write("@{}\n".format(nargs+5))
         self.file.write("D=D-A\n")
-        self.file.write("@LCL\n")
+        self.file.write("@ARG\n")
         self.file.write("M=D\n")
         
         #goto f.
 
         self.file.write("@{}\n".format(function_name))
         self.file.write("0;JMP\n")
+         
+        self.file.write('({})'.format(ret_address))
 
     def writeCall_functionnameinput(self, function_name, nargs):
         #We end the assembly code for call with (returnAddress). Thus, after the call ends (Via return), the execution must 
@@ -467,7 +471,7 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 
 
 #input_path = "./FunctionCalls/FibonacciElement"
-input_path = "./FunctionCalls/NestedCall/Sys.vm"
+input_path = "./FunctionCalls/NestedCall"
 
 if input_path.endswith(".vm"): #end of path is .vm, so file
     output_file_path = input_path.replace(".vm",".asm")
@@ -480,7 +484,7 @@ if input_path.endswith(".vm"): #end of path is .vm, so file
 
    
 else : #its a directory
-    output_file_path = input_path+"/"+input_path.split()[-1]+".asm"
+    output_file_path = input_path+"/"+input_path.split("/")[-1]+".asm"
 
     cw = CodeWriter(output_file_path)
     #cw.setup_init()
