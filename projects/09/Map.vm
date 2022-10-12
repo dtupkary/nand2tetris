@@ -7,6 +7,8 @@ push constant 32
 call Math.multiply 2
 call Array.new 1
 pop this 0
+push argument 2
+pop this 1
 push pointer 0
 push argument 0
 push argument 1
@@ -16,9 +18,11 @@ push pointer 0
 return
 function Map.converttoX 0
 push argument 0
+push constant 32
 push argument 0
 push constant 32
 call Math.divide 2
+call Math.multiply 2
 sub
 return
 function Map.converttoY 0
@@ -41,9 +45,9 @@ pop local 0
 label WHILE_EXP0
 push local 0
 push constant 15
-lt
 push constant 32
 call Math.multiply 2
+lt
 not
 if-goto WHILE_END0
 push local 0
@@ -80,7 +84,7 @@ pop pointer 1
 push that 0
 call Map.converttoIndex 2
 pop local 1
-push local 0
+push local 1
 push this 0
 add
 push constant 1
@@ -129,12 +133,15 @@ eq
 if-goto IF_TRUE0
 goto IF_FALSE0
 label IF_TRUE0
+push constant 0
+call Screen.setColor 1
+pop temp 0
 push constant 16
 push local 1
 call Math.multiply 2
 pop local 3
 push local 3
-push constant 16
+push constant 15
 add
 pop local 5
 push constant 16
@@ -164,6 +171,10 @@ eq
 if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
+push constant 0
+not
+call Screen.setColor 1
+pop temp 0
 push constant 16
 push local 1
 call Math.multiply 2
@@ -970,43 +981,16 @@ pop local 0
 label IF_FALSE47
 push local 0
 return
-function Map.celldisplay 0
+function Map.updatemap 5
 push argument 0
 pop pointer 0
-push argument 3
-call Screen.setColor 1
-pop temp 0
-push argument 1
+push constant 15
 push constant 32
 call Math.multiply 2
-push argument 2
-push constant 1
-add
-push constant 32
-call Math.multiply 2
-push argument 1
-push constant 1
-add
-push constant 32
-call Math.multiply 2
-push argument 2
-push constant 2
-add
-push constant 32
-call Math.multiply 2
-call Screen.drawRectangle 4
-pop temp 0
-push constant 0
-return
-function Map.updatemap 4
-push argument 0
-pop pointer 0
+call Array.new 1
+pop local 4
 push constant 0
 pop local 0
-push local 0
-push local 1
-call Map.converttoIndex 2
-pop local 2
 label WHILE_EXP0
 push local 0
 push constant 32
@@ -1021,6 +1005,10 @@ push constant 15
 lt
 not
 if-goto WHILE_END1
+push local 0
+push local 1
+call Map.converttoIndex 2
+pop local 2
 push pointer 0
 push local 0
 push local 1
@@ -1036,6 +1024,14 @@ eq
 if-goto IF_TRUE0
 goto IF_FALSE0
 label IF_TRUE0
+push local 2
+push local 4
+add
+push constant 0
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0
 push local 3
 push constant 3
 eq
@@ -1043,20 +1039,13 @@ if-goto IF_TRUE1
 goto IF_FALSE1
 label IF_TRUE1
 push local 2
-push this 0
+push local 4
 add
 push constant 1
 pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
-push pointer 0
-push local 0
-push local 1
-push constant 0
-not
-call Map.celldisplay 4
-pop temp 0
 label IF_FALSE1
 label IF_FALSE0
 push local 2
@@ -1069,26 +1058,28 @@ eq
 if-goto IF_TRUE2
 goto IF_FALSE2
 label IF_TRUE2
-push local 3
+push local 2
+push local 4
+add
 push constant 1
-eq
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0
+push local 3
+push constant 2
+lt
 if-goto IF_TRUE3
 goto IF_FALSE3
 label IF_TRUE3
 push local 2
-push this 0
+push local 4
 add
 push constant 0
 pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
-push pointer 0
-push local 0
-push local 1
-push constant 0
-call Map.celldisplay 4
-pop temp 0
 label IF_FALSE3
 push local 3
 push constant 3
@@ -1097,19 +1088,13 @@ if-goto IF_TRUE4
 goto IF_FALSE4
 label IF_TRUE4
 push local 2
-push this 0
+push local 4
 add
 push constant 0
 pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
-push pointer 0
-push local 0
-push local 1
-push constant 0
-call Map.celldisplay 4
-pop temp 0
 label IF_FALSE4
 label IF_FALSE2
 push local 1
@@ -1122,6 +1107,63 @@ push local 0
 push constant 1
 add
 pop local 0
+goto WHILE_EXP0
+label WHILE_END0
+push this 0
+call Array.dispose 1
+pop temp 0
+push local 4
+pop this 0
+push constant 0
+return
+function Map.printmap 3
+push argument 0
+pop pointer 0
+push constant 0
+pop local 1
+push constant 0
+pop local 2
+label WHILE_EXP0
+push local 1
+push constant 15
+lt
+not
+if-goto WHILE_END0
+push constant 0
+pop local 0
+label WHILE_EXP1
+push local 0
+push constant 32
+lt
+not
+if-goto WHILE_END1
+push local 0
+push local 1
+call Map.converttoIndex 2
+pop local 2
+push local 2
+push this 0
+add
+pop pointer 1
+push that 0
+call Output.printInt 1
+pop temp 0
+push local 0
+push constant 1
+add
+pop local 0
+push local 2
+push constant 1
+add
+pop local 2
+goto WHILE_EXP1
+label WHILE_END1
+push local 1
+push constant 1
+add
+pop local 1
+call Output.println 0
+pop temp 0
 goto WHILE_EXP0
 label WHILE_END0
 push constant 0

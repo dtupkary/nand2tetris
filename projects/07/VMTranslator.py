@@ -274,7 +274,8 @@ def main(parser,cw): #simple function that takes a parser, codewriter and starts
 
 
 
-input_path = sys.argv[1]
+input_path = sys.argv[1
+]
 #print("Input path is ",input," \n. Starting Translation \n ")
 
 

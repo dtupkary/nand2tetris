@@ -1,0 +1,71 @@
+/* Main file */
+class Main
+{
+    static int numturns;
+    static int numpos;
+
+    function void main()
+    {
+        var int i;
+        var Array Xpos, Ypos;
+        var Map gamemap;
+        do Output.printString(" We will play Conway's Game of Life !");
+        do Output.println();
+
+        let numturns = Keyboard.readInt("How many turns? ");
+        
+        let numpos = Keyboard.readInt("How many starting blocks? ");
+
+        let Xpos = Array.new(numpos);
+        let Ypos = Array.new(numpos);
+        let i = 0;
+        while (i < numpos)
+        {
+            let Xpos[i] = Keyboard.readInt("Enter X position of block (between 0 and 31) :  ");
+            let Ypos[i] = Keyboard.readInt("Enter Y position of block (between 0 and 15) :  ");
+            let i = i + 1;
+        }
+
+        do Output.printString("Input complete, starting game! ");
+        do Sys.wait(5000);
+        do Screen.clearScreen();
+
+
+        // lets start the game now
+        do Output.moveCursor(0, 5);
+        do Output.printString("World is evolving ! ");
+        do Output.moveCursor(0, 50);
+        do Output.printString("Counter : ");
+        do Screen.drawLine(0,12,511,12);
+
+        let gamemap = Map.new(Xpos,Ypos,numpos); //prepare a map with the starting configuration of input. 
+        
+        let i =0;
+        do Output.moveCursor(0,60);
+        do Output.printInt(i);
+        do gamemap.display(); //display map
+        
+     
+      
+
+        while(i < numturns){
+            let i = i + 1;
+            do Output.moveCursor(0,60);
+            do Output.printInt(i);
+            do gamemap.updatemap(); //keep updating map
+            do gamemap.display();
+           
+           
+            do Sys.wait(1000);
+        }
+
+        do Output.moveCursor(0,30);
+        do Output.printString("Game over !");
+  
+        return;
+
+    }
+
+
+
+}

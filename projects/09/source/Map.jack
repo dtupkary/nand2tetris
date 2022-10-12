@@ -4,16 +4,17 @@ class Map{
     field Array mapArray;
     field int numpos;
 
-    constructor Map new(Array Xpos, Array Ypos, int numpos)
+    constructor Map new(Array Xpos, Array Ypos, int num) //construct a map
     {   
-        let mapArray = Array.new(15*32);
+        let mapArray = Array.new(15*32); //we store map as 1d array. i,e the unrolled version of the 2d map.
+        let numpos = num;
         do configmap(Xpos,Ypos);
         return this;
     }
 
     function int converttoX (int index)
     {
-        return (index - (index/32));
+        return (index - (32*(index/32)));
     }
 
     function int converttoY(int index)
@@ -30,17 +31,18 @@ class Map{
     {
         var int i, index;
         let i = 0;
-        while (i < 15*32)
+        while (i < (15*32))
         {
             let mapArray[i]=0;
             let i = i+1;
         }
 
         let i = 0;
+        
         while (i < numpos)
         {
             let index = Map.converttoIndex(Xpos[i],Ypos[i]);
-            let mapArray[i]=1;
+            let mapArray[index]=1;
             let i = i+1;
         }
         return;
@@ -60,9 +62,9 @@ class Map{
             {
                 let index = Map.converttoIndex(x,y);
                 if (mapArray[index] = 0){
-                    //do Screen.setColor(false);
+                    do Screen.setColor(false);
                     let xa = 16*x;
-                    let xb = xa+16;
+                    let xb = xa+15;
                     let ya = 16*(y+1);
                     let yb = ya+15;
                     do Screen.drawRectangle(xa,ya,xb,yb );
@@ -70,7 +72,7 @@ class Map{
 
                 if (mapArray[index] = 1)
                 {
-                    //do Screen.setColor(true);
+                    do Screen.setColor(true);
                     let xa = 16*x;
                     let xb = xa+15;
                     let ya = 16*(y+1);
@@ -85,7 +87,7 @@ class Map{
         return;
     }
 
-    method int numneighbours(int posx, int posy)
+    method int numneighbours(int posx, int posy) //count number of live neighbours of given point
     {
         var int count, temp, index;
         let count = 0;
@@ -268,40 +270,36 @@ class Map{
         
     }
 
-    method void celldisplay(int x, int y, boolean color ){
-        do Screen.setColor(color);
-        do Screen.drawRectangle(x*32,(y+1)*32,(x+1)*32,(y+2)*32);
-        return;
-    }
 
-
-    method void updatemap(){ //update the map and also the display accordingly.
+    method void updatemap(){ //update the map 
         var int x,y,index, num;
+        var Array newmapArray;
+        let newmapArray = Array.new(15*32);
 
         let x = 0;
-        let index = Map.converttoIndex(x,y);
-       
+        
 
         while(x < 32){
             let y = 0;
             while  (y < 15){
+                let index = Map.converttoIndex(x,y);
                 let num  = numneighbours(x,y);
+
                 if (mapArray[index] = 0){ // dead cell
+                    let newmapArray[index] = 0;
                     if (num = 3){
-                        let mapArray[index] = 1;
-                        do celldisplay(x,y,true);
-                    }
+                        let newmapArray[index] = 1;
+                    }            
                 }
 
                 if (mapArray[index] = 1){ // alive cell
-                    if (num = 1){
-                        let mapArray[index] = 0;
-                        do celldisplay(x,y,false);
+                    let newmapArray[index] = 1;
+                    if (num < 2){
+                        let newmapArray[index] = 0;
                     }
 
                     if (num > 3){
-                        let mapArray[index] = 0;
-                        do celldisplay(x,y, false);
+                        let newmapArray[index] = 0;
                     }
                 }
                 let y = y+1;
@@ -309,10 +307,46 @@ class Map{
             let x = x+1;
 
         }
-        return;
+        do mapArray.dispose();
+        let mapArray = newmapArray; //this code works in updating arrays;
+
+
+        //somehow the following code does not work in updating mapArray! I dont know why!
+        /*do Output.println();
+        do Output.printInt(newmapArray[0]);
+        do Output.printInt(newmapArray[1]);
+        let index = 0; //copy new array into current map object
+        while (index < 15*32){
+            let mapArray[index] = newmapArray[index];
+            let index = index +1;
+
+        }
+        do Output.printInt(mapArray[0]);
+        do Output.printInt(mapArray[1]); */
+        return; 
     }
 
 
-    
+    method void printmap(){
+
+        var int x, y, index ; 
+        let y = 0;
+        let index = 0;
+
+       
+        while (y < 15){
+            let x = 0;
+            while (x < 32){
+                let index = Map.converttoIndex(x,y);
+                do Output.printInt(mapArray[index]);
+          
+                let x = x+1;
+                let index = index +1;
+            }
+            let y = y+1;
+            do Output.println();
+        }
+        return;
+    }
 
 }
