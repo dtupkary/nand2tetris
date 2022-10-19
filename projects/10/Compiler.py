@@ -4,6 +4,8 @@
 import sys 
 import os
 
+from attr import asdict
+
 global SYMBOL_LIST
 SYMBOL_LIST = ['{','}','(',')','[',']','.',',',';','+','-','*','/','&','|','<','>','=','~']
 
@@ -20,8 +22,80 @@ class Tokenizer:
         self.filename = inputpath #sets the filename we must read
         self.file = self.load() #self.file is an iterator now. 
         self.current_token = ""
+        self.stop_flag = False
 
-    #reads the next character, checks if it in symbol / whitespace / 
+   
+    def next_token(self): 
+        while(True):
+            if (self.current_token.startswith("\"")): # we are parsing string constant
+                self.current_token = self.current_token + self.next_element()
+                if self.current_token.endswith("\""):
+                    token = self.current_token
+                    self.current_token = ""
+                    return token
+                else:
+                    continue
+
+
+
+
+
+            if (self.current_token in SYMBOL_LIST): # we already have a token
+                token = self.current_token
+                self.current_token = ""
+                return token
+        
+            if (self.current_token in DELIMITERS):
+                self.current_token = ""
+                return self.next_token()
+        
+            current_char = self.next_element()
+            
+            if (current_char in SYMBOL_LIST):
+                
+                if (self.current_token == ""): #empty token
+                    token = current_char
+                    self.current_token = ""
+                    return token
+                else:
+                    token = self.current_token
+                    self.current_token = current_char
+                    return token
+
+            elif (current_char in DELIMITERS):
+                if (self.current_token == ""): #empty token
+                    return self.next_token()
+                else:
+                    token = self.current_token
+                    self.current_token = ""
+                    return token
+
+            elif (current_char == None):# we have reached end of file
+                self.stop_flag = True #stop iterating
+                return self.current_token
+        
+            #if none of the above. then append.
+        
+            self.current_token = self.current_token + current_char
+
+    def token_type(self):
+        if self.current_token.startswith("\""):
+            return "STRING_CONST"
+        elif self.current_token.isnumeric():
+            return "INT_CONST"
+        elif self.current_token in SYMBOL_LIST:
+            return "SYMBOL"
+        elif self.current_token in KEYWORD_LIST:
+            return "KEYWORD"
+        elif self.current_token != "": #sometimes we might get these empty tokens
+            #typically towards the last token..
+            return "INDENTIFIER"
+        else:
+            return "NONE"
+
+    def string_val(self):
+        if self.current_token.startswith("\"") and self.current_token.endswith("\""):
+            return self.current_token[3:-2]
 
     ## HELPER FUNCTIONS ####
     def load(self):
@@ -65,39 +139,56 @@ class Tokenizer:
         return iter(data_stream) #construct iterable object. 
 
 
-    def next_element(self):
-        return next(self.file)
-
-    def next_token(self):
-        while(True):
-            if (self.current_token in SYMBOL_LIST): # we already have a token
-                token = self.current_token
-                self.current_token = ""
-                return token
+    def next_element(self): #checks if there is a next element, and adds it to the current_char
+        return next(self.file,None)
         
-            if (self.current_token in DELIMITERS):
-                self.current_token = ""
-                return self.next_token()
+
+    ### Checking functions, not used for compilation
+
+    def print_all_tokens(self):
+        while(not self.stop_flag):
+            print(self.next_token())
+
+
+class CompilationEngine():
+    def __init__(self,output_file):
+        self.filename = output_file
+        self.file = open(output_file,"w")
+
+    def write(self,string):
+        self.file.write(string)
+
+    
+    def CompileClass(self, tokenizer):
+        self.write{"<class>\n"}
+        self.write("class")
         
-            current_char = self.next_element()#obtain next character
-            if (current_char in SYMBOL_LIST):
-                
-                if (self.current_token == ""): #empty token
-                    token = current_char
-                    self.current_token = ""
-                    return token
-                else:
-                    token = self.current_token
-                    self.current_token = current_char
-                    return token
+        self.write("</class>\n")
 
-            elif (current_char in DELIMITERS):
-                if (self.current_token == ""): #empty token
-                    return self.next_token()
-                else:
-                    token = self.current_token
-                    self.current_token = ""
-                    return token
-        #if none of the above. then append.
-            self.current_token = self.current_token + current_char
+    def CompileClassVarDec(self, tokenizer):
 
+    def CompileSubroutine(self, tokenizer):
+
+    def CompileParameterList(self, tokenizer):
+
+    def CompileVarDec(self, tokenizer):
+
+    def CompileStatements(self,tokenizer):
+
+    def CompileDo(self,tokenizer):
+
+    def CompileLet(self,tokenizer):
+
+    def CompileWhile(self, tokenizer):
+    
+    def CompileReturn(self, tokenizer):
+
+    def CompileIf(self, tokenizer):
+
+    def CompileExpression(self, tokenizer):
+
+    def CompileTerm(self, tokenizer):
+
+    def CompileExpressionList(self, tokenizer):
+
+    
