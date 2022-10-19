@@ -1,5 +1,6 @@
 # code for the JACK to XML Compiler.
 
+# Tokenizer can be better written. 
 
 import sys 
 import os
@@ -20,10 +21,35 @@ class Tokenizer:
 
     def __init__(self, inputpath):
         self.filename = inputpath #sets the filename we must read
-        self.file = self.load() #self.file is an iterator now. 
+        self.file = self.load()
         self.current_token = ""
         self.stop_flag = False
+        self.tokens = self.return_all_tokens() #all tokens are now in a list.
+        self.index = 0
+        self.max_index = len(self.tokens)
 
+    def advance(self):
+        self.index = self.index+1
+        return self.tokens[self.index-1]
+    
+
+    def current_token(self):
+        return self.tokens[self.index]
+
+    def token_type(token):
+        if token.startswith("\""):
+            return "STRING_CONST"
+        elif token.isnumeric():
+            return "INT_CONST"
+        elif token in SYMBOL_LIST:
+            return "SYMBOL"
+        elif token in KEYWORD_LIST:
+            return "KEYWORD"
+        elif token != "": #sometimes we might get these empty tokens
+            #typically towards the last token..
+            return "INDENTIFIER"
+        else:
+            return "NONE"
    
     def next_token(self): 
         while(True):
@@ -78,20 +104,7 @@ class Tokenizer:
         
             self.current_token = self.current_token + current_char
 
-    def token_type(self):
-        if self.current_token.startswith("\""):
-            return "STRING_CONST"
-        elif self.current_token.isnumeric():
-            return "INT_CONST"
-        elif self.current_token in SYMBOL_LIST:
-            return "SYMBOL"
-        elif self.current_token in KEYWORD_LIST:
-            return "KEYWORD"
-        elif self.current_token != "": #sometimes we might get these empty tokens
-            #typically towards the last token..
-            return "INDENTIFIER"
-        else:
-            return "NONE"
+    
 
     def string_val(self):
         if self.current_token.startswith("\"") and self.current_token.endswith("\""):
@@ -141,54 +154,90 @@ class Tokenizer:
 
     def next_element(self): #checks if there is a next element, and adds it to the current_char
         return next(self.file,None)
-        
-
-    ### Checking functions, not used for compilation
 
     def print_all_tokens(self):
         while(not self.stop_flag):
             print(self.next_token())
+    
+    def return_all_tokens(self):
+        list = []
+        while(not self.stop_flag):
+            list.append(self.next_token())
+        return list
 
 
 class CompilationEngine():
     def __init__(self,output_file):
         self.filename = output_file
         self.file = open(output_file,"w")
-
+       
+        self.index = 0
+    
     def write(self,string):
         self.file.write(string)
 
     
-    def CompileClass(self, tokenizer):
-        self.write{"<class>\n"}
-        self.write("class")
+    def CompileClass(self , tokenizer):
+        token = tokenizer.advance()
+        self.write("<class>\n")
+        self.write_terminal("keyword",token) #token should be ""class"
+        class_name = tokenizer.advance() #should be classname
+        self.write_terminal("identifier",class_name)
+        symbol = tokenizer.advance() # should be {
+        self.write("symbol",symbol)
         
+        self.CompileClassVarDec(self, tokenizer)
+        self.CompileSubroutine(self, tokenizer)
+        
+        symbol = tokenizer.advance() #should be }
+        self.write("symbol", symbol)
         self.write("</class>\n")
 
     def CompileClassVarDec(self, tokenizer):
+        while tokenizer.current_token == 'static' or tokenizer.current_token == 'field': #as long as there is one more statement
+            token = tokenizer.advance()
+            self.write_terminal("keyword",token)
+            type = tokenizer.advance() #return type
+            token_type = Tokenizer.token_type(type)
+            self.write_terminal(token_type.lower(),type)
+
+
 
     def CompileSubroutine(self, tokenizer):
+        pass
 
     def CompileParameterList(self, tokenizer):
+        pass
 
     def CompileVarDec(self, tokenizer):
+        pass
 
     def CompileStatements(self,tokenizer):
+        pass
 
     def CompileDo(self,tokenizer):
+        pass
 
     def CompileLet(self,tokenizer):
+        pass
 
     def CompileWhile(self, tokenizer):
+        pass
     
     def CompileReturn(self, tokenizer):
+        pass
 
     def CompileIf(self, tokenizer):
+        pass
 
     def CompileExpression(self, tokenizer):
+        pass
 
     def CompileTerm(self, tokenizer):
+        pass
 
     def CompileExpressionList(self, tokenizer):
+        pass
 
-    
+    def write_terminal(self,type,string):
+        self.write("<"+type+"> "+string+" </"+type+">\n")
