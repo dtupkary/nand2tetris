@@ -2,6 +2,7 @@
 
 # Tokenizer can be better written. 
 
+from lib2to3.pgen2.tokenize import tokenize
 import sys 
 import os
 
@@ -34,6 +35,7 @@ class Tokenizer:
     
 
     def next_token(self):
+        
         return self.tokens[self.index]
 
     def token_type(token):
@@ -181,9 +183,10 @@ class CompilationEngine():
         self.file.write(self.indent+string)
 
     def write_terminal(self,tokenizer): #writes the next token which should be terminal token
+        
         token = tokenizer.advance()
         token_type = Tokenizer.token_type(token)
-        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">\n")
+        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">" + str(tokenizer.index)+"\n")
     
 
     def write_terminals_until(self,tokenizer,symbol): # keeps writing terminals and stops after writing symbol
@@ -265,8 +268,9 @@ class CompilationEngine():
 
         self.write_terminals_until(tokenizer,";")
        
-        self.write("</varDec>\n")
         self.decrease_indent()
+        self.write("</varDec>\n")
+        
 
     def CompileParameterList(self,tokenizer):
         self.write("<parameterList>\n")
@@ -280,15 +284,206 @@ class CompilationEngine():
 
 
     def CompileStatements(self,tokenizer):
+
+        
         self.write("<statements>\n")
         self.increase_indent()
 
-        #code
-
         
+        while (tokenizer.next_token() in ['let','if','while','do','return']): #there is another statement to write
+
+            nexttoken = tokenizer.next_token()
+            if nexttoken == 'let':
+                self.CompileLet(tokenizer)
+            elif nexttoken == 'if':
+                self.CompileIf( tokenizer)
+            elif nexttoken == 'while':
+                self.CompileWhile( tokenizer)
+            elif nexttoken == 'do':
+                self.CompileDo(tokenizer)
+            elif nexttoken == 'return':
+                self.CompileReturn( tokenizer)
+
         self.decrease_indent()
         self.write("</statements>\n")
 
+
+    def CompileLet(self, tokenizer):
+        self.write("<letStatement>\n")
+        self.increase_indent()
+
+        self.write_terminal(tokenizer)# has to be "let"
+        self.write_terminal(tokenizer) # has to be varname
+
+        if tokenizer.next_token() == '[':
+            self.write_terminal(tokenizer) # has to be [
+            self.CompileExpression(tokenizer)
+            self.write_terminal(tokenizer) # has to be ]
+
+
+        self.write_terminal(tokenizer) # has to be =
+        self.CompileExpression(tokenizer)
+        self.write_terminal(tokenizer) # has to be ;
+
+
+        self.decrease_indent()
+        self.write("</letStatement>\n")
+
+    def CompileIf(self, tokenizer):
+        self.write("<ifStatement>\n")
+        self.increase_indent()
+        
+        self.write_terminal(tokenizer) # has to be IF
+        self.write_terminal(tokenizer) # has to be (
+        self.CompileExpression(tokenizer) 
+        self.write_terminal(tokenizer) # has to be )
+
+        self.write_terminal(tokenizer) # has to be {
+        self.CompileStatements(tokenizer)
+        self.write_terminal(tokenizer) # has to be }
+
+        if tokenizer.next_token() == 'else':
+            self.write_terminal(tokenizer)# has to be 'else'
+            self.write_terminal(tokenizer)# has to be {
+            self.CompileStatements(tokenizer)
+            self.write_terminal(tokenizer)# has to be }
+
+        self.decrease_indent()
+        self.write("</ifStatement>\n")
+
+    def CompileWhile(self, tokenizer):
+        self.write("<whileStatement>\n")
+        self.increase_indent()
+
+        self.write_terminal(tokenizer) # must be 'while'
+        self.write_terminal(tokenizer)
+        self.CompileExpression(tokenizer)
+        self.write_terminal(tokenizer) # must be )
+
+        self.write_terminal(tokenizer)
+        self.CompileStatements(tokenizer)
+        self.write_terminal(tokenizer) # must be )
+
+
+        self.decrease_indent()
+        self.write("</whileStatement>\n")
+
+
+
+    def CompileDo(self, tokenizer):
+        self.write("<doStatement>\n")
+        self.increase_indent()
+
+        self.write_terminal(tokenizer) # must be 'do'
+        ## noe we must do subroutineCall
+
+        self.write_terminal(tokenizer) #subroutine name / classnameorvarname
+
+        if tokenizer.next_token() == '(':
+            self.write_terminal(tokenizer) # (
+            self.CompileExpressionList(tokenizer)
+            self.write_terminal(tokenizer) # must be )
+
+        elif tokenizer.next_token() == ".":
+            self.write_terminals_until(tokenizer,"(") # 
+            self.CompileExpressionList(tokenizer)
+            self.write_terminal(tokenizer) # must be )
+
+        self.write_terminal(tokenizer) # must  be ;
+        self.decrease_indent()
+        self.write("</doStatement>\n")
+        
+    
+    def CompileReturn(self, tokenizer):
+        self.write("<returnStatement>\n")
+        self.increase_indent()
+
+        self.write_terminal(tokenizer) # must be return
+
+        if tokenizer.next_token() != ';': # there is a return expression
+            self.CompileExpression(tokenizer)
+        
+        self.write_terminal(tokenizer) # must be ;
+
+
+        self.decrease_indent()
+        self.write("</returnStatement>\n")
+
+    def CompileExpression(self, tokenizer):
+        self.write("<expression>\n")
+        self.increase_indent()
+
+        self.CompileTerm(tokenizer)
+
+       
+
+        while tokenizer.next_token() in ['+','-','*','/','&','|','<','>','=']: #there is another term
+            self.write_terminal(tokenizer) # will be the above symbol
+            self.CompileTerm(tokenizer)
+
+
+        self.decrease_indent()
+        self.write("</expression>\n")
+
+    def CompileExpressionList(self, tokenizer):
+        self.write("<expressionList>\n")
+        self.increase_indent()
+
+        if tokenizer.next_token() != ')': # there is atleast one
+            self.CompileExpression(tokenizer)
+            while tokenizer.next_token() != ')':
+                self.write_terminal(tokenizer) # must be ;
+                self.CompileExpression(tokenizer)
+
+
+
+        self.decrease_indent()
+        self.write("</expressionList>\n")
+
+    def CompileTerm(self, tokenizer):
+
+        self.write("<term>\n")
+        self.increase_indent()
+
+        nexttoken = tokenizer.next_token()
+
+        if nexttoken in ['-','~']: #unary op
+            self.write_terminal(tokenizer) 
+            self.CompileTerm(tokenizer)
+        
+        elif nexttoken == '(':
+
+            self.write_terminal(tokenizer) # will be some 
+            self.CompileExpression(tokenizer)
+            self.write_terminal(tokenizer)
+        
+        else:
+            self.write_terminal(tokenizer) # wil be something
+
+            nexttoken = tokenizer.next_token()
+            if nexttoken == '[': # array indexing
+                self.write_terminal(tokenizer)
+                self.CompileExpression(tokenizer)
+                self.write_terminal(tokenizer)
+            
+            elif nexttoken == '(': 
+                self.write_terminal(tokenizer)
+                self.CompileExpressionList(tokenizer)
+                self.write_terminal(tokenizer)
+
+            elif nexttoken == '.':
+                self.write_terminal(tokenizer)
+                self.write_terminal(tokenizer)
+                self.write_terminal(tokenizer)
+
+                self.CompileExpressionList(tokenizer)
+                self.write_terminal(tokenizer)
+                
+        self.decrease_indent()
+        self.write("</term>\n")
+
+        
+       
 input_path = "./Square/Main.jack"
 
 
@@ -298,7 +493,7 @@ input_path = "./Square/Main.jack"
 
 
 
-if input_path.endswith(".jack"): #end of path is .vm, so file
+if input_path.endswith(".jack"): #end of path is .vm, so file 
     output_file_path = input_path.replace(".jack",".txt")
     
     tokenizer = Tokenizer(input_path)
@@ -319,6 +514,6 @@ else : #its a directory
             output_file_path = Tokenizer(path.replace(".jack",".txt"))
 
             writer = CompilationEngine(output_file_path)
-            wrtier.CompileClass(tokenizer)
+            writer.CompileClass(tokenizer)
 
     
