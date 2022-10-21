@@ -33,25 +33,30 @@ class Tokenizer:
         return self.tokens[self.index-1]
     
 
-    def current_token(self):
+    def next_token(self):
         return self.tokens[self.index]
 
     def token_type(token):
         if token.startswith("\""):
-            return "STRING_CONST"
+            return "stringConstant"
         elif token.isnumeric():
-            return "INT_CONST"
+            return "integerConst"
         elif token in SYMBOL_LIST:
-            return "SYMBOL"
+            return "symbol"
         elif token in KEYWORD_LIST:
-            return "KEYWORD"
-        elif token != "": #sometimes we might get these empty tokens
-            #typically towards the last token..
-            return "INDENTIFIER"
+            return "keyword"
+        elif token != "": 
+            return "identifier"
+        
+
+    def has_next_token(self):
+        if self.index < self.max_index:
+            return True
         else:
-            return "NONE"
+            return False
+
    
-    def next_token(self): 
+    def generate_next_token(self): 
         while(True):
             if (self.current_token.startswith("\"")): # we are parsing string constant
                 self.current_token = self.current_token + self.next_element()
@@ -62,10 +67,6 @@ class Tokenizer:
                 else:
                     continue
 
-
-
-
-
             if (self.current_token in SYMBOL_LIST): # we already have a token
                 token = self.current_token
                 self.current_token = ""
@@ -73,7 +74,7 @@ class Tokenizer:
         
             if (self.current_token in DELIMITERS):
                 self.current_token = ""
-                return self.next_token()
+                return self.generate_next_token()
         
             current_char = self.next_element()
             
@@ -90,7 +91,7 @@ class Tokenizer:
 
             elif (current_char in DELIMITERS):
                 if (self.current_token == ""): #empty token
-                    return self.next_token()
+                    return self.generate_next_token()
                 else:
                     token = self.current_token
                     self.current_token = ""
@@ -154,15 +155,13 @@ class Tokenizer:
 
     def next_element(self): #checks if there is a next element, and adds it to the current_char
         return next(self.file,None)
-
-    def print_all_tokens(self):
-        while(not self.stop_flag):
-            print(self.next_token())
     
     def return_all_tokens(self):
         list = []
         while(not self.stop_flag):
-            list.append(self.next_token())
+            token = self.generate_next_token()
+            if token != '':
+                list.append(token)
         return list
 
 
@@ -170,74 +169,156 @@ class CompilationEngine():
     def __init__(self,output_file):
         self.filename = output_file
         self.file = open(output_file,"w")
-       
-        self.index = 0
+        self.indent = ""
     
+    def increase_indent(self):
+        self.indent = self.indent+"  "
+
+    def decrease_indent(self):
+        self.indent = self.indent[0:-2]
+
     def write(self,string):
-        self.file.write(string)
+        self.file.write(self.indent+string)
+
+    def write_terminal(self,tokenizer): #writes the next token which should be terminal token
+        token = tokenizer.advance()
+        token_type = Tokenizer.token_type(token)
+        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">\n")
+    
+
+    def write_terminals_until(self,tokenizer,symbol): # keeps writing terminals and stops after writing symbol
+        while (tokenizer.next_token() != symbol):
+            self.write_terminal(tokenizer)
+        self.write_terminal(tokenizer)
 
     
-    def CompileClass(self , tokenizer):
-        token = tokenizer.advance()
+    def write_terminals_before(self,tokenizer,symbol): # keeps writing terminals and stops BEFORE writinig symbol
+        while (tokenizer.next_token() != symbol):
+            self.write_terminal(tokenizer)
+
+    def CompileClass(self,tokenizer):
         self.write("<class>\n")
-        self.write_terminal("keyword",token) #token should be ""class"
-        class_name = tokenizer.advance() #should be classname
-        self.write_terminal("identifier",class_name)
-        symbol = tokenizer.advance() # should be {
-        self.write("symbol",symbol)
+        self.increase_indent()
+
+        self.write_terminals_until(tokenizer,'{')
+
+        while tokenizer.next_token() in ['static','field']:
+            self.CompileclassVarDec(tokenizer)
+
+        while tokenizer.next_token() in ['function','constructor','method']:
+            self.CompilesubroutineDec(tokenizer)
+
+
+        self.write_terminal(tokenizer) # would be }
+
+        self.decrease_indent()
+        self.file.write("</class>\n")
+
+    
+    
+    def CompileclassVarDec(self,tokenizer):
+        self.write("<classVarDec>\n")
+        self.increase_indent()
+
+        self.write_terminals_until(tokenizer,";")
+     
+
+        self.decrease_indent()
+        self.write("</classVarDec>\n")
         
-        self.CompileClassVarDec(self, tokenizer)
-        self.CompileSubroutine(self, tokenizer)
+
+    def CompilesubroutineDec(self,tokenizer):
+        self.write("<subroutineDec>\n")
+        self.increase_indent()
+
+        self.write_terminals_until(tokenizer,"(")
+     
+    
+        self.CompileParameterList(tokenizer)
+
+        self.write_terminal(tokenizer) #will be )
+
+        #code for subroutine body now
+
+        self.write("<subroutineBody>\n")
+        self.increase_indent()
+
+        self.write_terminal(tokenizer) #should be {
+        while (tokenizer.next_token() == 'var'):
+            self.CompilevarDec(tokenizer)
         
-        symbol = tokenizer.advance() #should be }
-        self.write("symbol", symbol)
-        self.write("</class>\n")
+        self.CompileStatements(tokenizer)
 
-    def CompileClassVarDec(self, tokenizer):
-        while tokenizer.current_token == 'static' or tokenizer.current_token == 'field': #as long as there is one more statement
-            token = tokenizer.advance()
-            self.write_terminal("keyword",token)
-            type = tokenizer.advance() #return type
-            token_type = Tokenizer.token_type(type)
-            self.write_terminal(token_type.lower(),type)
+        self.write_terminal(tokenizer) # should be }
+
+        self.decrease_indent()
+        self.write("</subroutineBody>\n")
+
+        self.decrease_indent()
+        self.write("</subroutineDec>\n")
 
 
+    def CompilevarDec(self,tokenizer):
 
-    def CompileSubroutine(self, tokenizer):
-        pass
+        self.write("<varDec>\n")
+        self.increase_indent()
 
-    def CompileParameterList(self, tokenizer):
-        pass
+        self.write_terminals_until(tokenizer,";")
+       
+        self.write("</varDec>\n")
+        self.decrease_indent()
 
-    def CompileVarDec(self, tokenizer):
-        pass
+    def CompileParameterList(self,tokenizer):
+        self.write("<parameterList>\n")
+        self.increase_indent()
+
+        self.write_terminals_before(tokenizer,")")
+
+        
+        self.decrease_indent()
+        self.write("</parameterList>\n")
+
 
     def CompileStatements(self,tokenizer):
-        pass
+        self.write("<statements>\n")
+        self.increase_indent()
 
-    def CompileDo(self,tokenizer):
-        pass
+        #code
 
-    def CompileLet(self,tokenizer):
-        pass
+        
+        self.decrease_indent()
+        self.write("</statements>\n")
 
-    def CompileWhile(self, tokenizer):
-        pass
+input_path = "./Square/Main.jack"
+
+
+
+
+
+
+
+
+if input_path.endswith(".jack"): #end of path is .vm, so file
+    output_file_path = input_path.replace(".jack",".txt")
     
-    def CompileReturn(self, tokenizer):
-        pass
+    tokenizer = Tokenizer(input_path)
+    writer = CompilationEngine(output_file_path)
+    writer.CompileClass(tokenizer)
 
-    def CompileIf(self, tokenizer):
-        pass
+   
+else : #its a directory
+    output_file_path = input_path+".txt"
 
-    def CompileExpression(self, tokenizer):
-        pass
+    writer = CompilationEngine(output_file)
+    cw = CodeWriter(output_file_path)
 
-    def CompileTerm(self, tokenizer):
-        pass
+    for file_path in os.listdir(input_path):
+        if file_path.endswith(".jack"):
+            path = input_path +"/"+file_path
+            tokenizer = Tokenizer(path)
+            output_file_path = Tokenizer(path.replace(".jack",".txt"))
 
-    def CompileExpressionList(self, tokenizer):
-        pass
+            writer = CompilationEngine(output_file_path)
+            wrtier.CompileClass(tokenizer)
 
-    def write_terminal(self,type,string):
-        self.write("<"+type+"> "+string+" </"+type+">\n")
+    
