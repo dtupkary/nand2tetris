@@ -317,7 +317,7 @@
               </expression>
               <symbol> ) </symbol>
             </term>
-            <symbol> amp; </symbol>
+            <symbol> &amp; </symbol>
             <term>
               <symbol> ( </symbol>
               <expression>

@@ -2,11 +2,11 @@
 
 # Tokenizer can be better written. 
 
-from lib2to3.pgen2.tokenize import tokenize
+
 import sys 
 import os
 
-from attr import asdict
+
 
 global SYMBOL_LIST
 SYMBOL_LIST = ['{','}','(',')','[',']','.',',',';','+','-','*','/','&','|','<','>','=','~']
@@ -42,7 +42,7 @@ class Tokenizer:
         if token.startswith("\""):
             return "stringConstant"
         elif token.isnumeric():
-            return "integerConst"
+            return "integerConstant"
         elif token in SYMBOL_LIST:
             return "symbol"
         elif token in KEYWORD_LIST:
@@ -143,14 +143,16 @@ class Tokenizer:
             
             if comment == True: # we are parsing a multiline comment
                 if (line.rfind("*/") > -1): # line contains end of comment
-                    data[index] = line[:line.rfind("*/")+2]
-                    comment = True
+                    data[index] = line[line.rfind("*/")+2:]
+                    comment = False
                 else:
                     data[index] = ""
         
         data = [line.strip() for line in data] #strip line of trailing spaces
         data = [line for line in data if line != ""] #removes lines which are empty
         data_stream = " ".join(data)
+
+
 
         return iter(data_stream) #construct iterable object. 
 
@@ -186,7 +188,17 @@ class CompilationEngine():
         
         token = tokenizer.advance()
         token_type = Tokenizer.token_type(token)
-        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">" + str(tokenizer.index)+"\n")
+
+        if token == '<':
+            token = "&lt;"
+        elif token == '>':
+            token = "&gt;"
+        elif token == '&':
+            token = "&amp;"
+
+        if token_type == "stringConstant":
+            token = token[1:-1]
+        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">\n")
     
 
     def write_terminals_until(self,tokenizer,symbol): # keeps writing terminals and stops after writing symbol
@@ -484,17 +496,14 @@ class CompilationEngine():
 
         
        
-input_path = "./Square/Main.jack"
 
-
-
-
-
+input_path = sys.argv[1]
+#input_path = "./Square/Square.jack"
 
 
 
 if input_path.endswith(".jack"): #end of path is .vm, so file 
-    output_file_path = input_path.replace(".jack",".txt")
+    output_file_path = input_path.replace(".jack",".xml")
     
     tokenizer = Tokenizer(input_path)
     writer = CompilationEngine(output_file_path)
@@ -502,17 +511,14 @@ if input_path.endswith(".jack"): #end of path is .vm, so file
 
    
 else : #its a directory
-    output_file_path = input_path+".txt"
-
-    writer = CompilationEngine(output_file)
-    cw = CodeWriter(output_file_path)
-
+   
+   
     for file_path in os.listdir(input_path):
         if file_path.endswith(".jack"):
             path = input_path +"/"+file_path
             tokenizer = Tokenizer(path)
-            output_file_path = Tokenizer(path.replace(".jack",".txt"))
-
+            output_file_path = path.replace(".jack",".xml")
+            print("Writing to "+output_file_path+"\n")
             writer = CompilationEngine(output_file_path)
             writer.CompileClass(tokenizer)
 
