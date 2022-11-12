@@ -426,6 +426,22 @@ class CompilationEngine():
         tokenizer.advance()
 
 
+    def CompileExpressionList(self, tokenizer, writer):
+       
+        count = 0
+
+        if tokenizer.next_token() != ')': # there is atleast one
+            self.CompileExpression(tokenizer, writer)
+            count += 1
+            while tokenizer.next_token() != ')':
+                tokenizer.advance() # must be ,
+                self.CompileExpression(tokenizer, writer)
+                count += 1
+
+
+
+        return count
+
 ###### start to write here. 
 
     def CompileExpression(self, tokenizer):
@@ -443,21 +459,6 @@ class CompilationEngine():
 
         self.decrease_indent()
         self.write("</expression>\n")
-
-    def CompileExpressionList(self, tokenizer):
-        self.write("<expressionList>\n")
-        self.increase_indent()
-
-        if tokenizer.next_token() != ')': # there is atleast one
-            self.CompileExpression(tokenizer)
-            while tokenizer.next_token() != ')':
-                self.write_terminal(tokenizer) # must be ;
-                self.CompileExpression(tokenizer)
-
-
-
-        self.decrease_indent()
-        self.write("</expressionList>\n")
 
     def CompileTerm(self, tokenizer):
 
