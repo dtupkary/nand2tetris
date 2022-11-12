@@ -5,6 +5,7 @@
 
 
 
+
 import sys 
 import os
 
@@ -20,8 +21,26 @@ KEYWORD_LIST = ['class','constructor','function','method','field','static','var'
 global DELIMITIERS
 DELIMITERS = [' ','\n']
 
-class Tokenizer:
 
+global CONVERT_KIND
+CONVERT_KIND = {     'arg': 'arg',    'static': 'static',    'var': 'local',    'field': 'this'  }
+
+global ARITHMETIC 
+ARITHMETIC = {    '+': 'add',    '-': 'sub',    '=': 'eq',    '>': 'gt',    '<': 'lt',    '&': 'and',    '|': 'or'  }
+
+global ARITHMETIC_UNARY
+ARITHMETIC_UNARY = {    '-': 'neg',    '~': 'not'  }
+
+global while_index 
+while_index = 0
+
+global if_index
+if_index = 0
+
+  
+
+class Tokenizer:
+    
     def __init__(self, inputpath):
         self.filename = inputpath #sets the filename we must read
         self.file = self.load()
@@ -174,254 +193,240 @@ class Tokenizer:
 class CompilationEngine():
     def __init__(self,output_file):
         self.filename = output_file
-        self.file = open(output_file,"w")
-        self.indent = ""
-    
-    def increase_indent(self):
-        self.indent = self.indent+"  "
-
-    def decrease_indent(self):
-        self.indent = self.indent[0:-2]
-
-    def write(self,string):
-        self.file.write(self.indent+string)
-
-    def write_terminal(self,tokenizer): #writes the next token which should be terminal token
+        #self.writer = VM_Writer(output_file) 
+        self.symbol_table = SymbolTable()   
+        self.classname = ""
         
-        token = tokenizer.advance()
-        token_type = Tokenizer.token_type(token)
 
-        if token == '<':
-            token = "&lt;"
-        elif token == '>':
-            token = "&gt;"
-        elif token == '&':
-            token = "&amp;"
-
-        if token_type == "stringConstant":
-            token = token[1:-1]
-        self.file.write(self.indent+"<"+token_type+"> "+token+" </"+token_type+">\n")
-    
-
-    def write_terminals_until(self,tokenizer,symbol): # keeps writing terminals and stops after writing symbol
-        while (tokenizer.next_token() != symbol):
-            self.write_terminal(tokenizer)
-        self.write_terminal(tokenizer)
-
-    
-    def write_terminals_before(self,tokenizer,symbol): # keeps writing terminals and stops BEFORE writinig symbol
-        while (tokenizer.next_token() != symbol):
-            self.write_terminal(tokenizer)
-
-    def CompileClass(self,tokenizer):
-        self.write("<class>\n")
-        self.increase_indent()
-
-        self.write_terminals_until(tokenizer,'{')
+    def CompileClass(self,tokenizer,writer):
+        token = tokenizer.advance()  #class
+        self.classname = tokenizer.advance() #className
+        tokenizer.advance() #{
 
         while tokenizer.next_token() in ['static','field']:
-            self.CompileclassVarDec(tokenizer)
+            self.CompileclassVarDec(tokenizer, writer)
 
         while tokenizer.next_token() in ['function','constructor','method']:
-            self.CompilesubroutineDec(tokenizer)
+            self.CompilesubroutineDec(tokenizer, writer)
 
 
-        self.write_terminal(tokenizer) # would be }
-
-        self.decrease_indent()
-        self.file.write("</class>\n")
-
+        self.writer.close()
     
     
-    def CompileclassVarDec(self,tokenizer):
-        self.write("<classVarDec>\n")
-        self.increase_indent()
+    def CompileclassVarDec(self,tokenizer, writer):
+        kind = tokenizer.advance() #(static | field)
+        type = tokenizer.advance() #(type)
+        name = tokenizer.advance() #name
 
-        self.write_terminals_until(tokenizer,";")
-     
+        self.symbol_table.define(name,type,kind)
 
-        self.decrease_indent()
-        self.write("</classVarDec>\n")
-        
+        while (tokenizer.next_token() != ';'):
+            tokenizer.advance() # ","
+            name = tokenizer.advance() # name
+            self.symbol_table.define(name,type,kind)
 
-    def CompilesubroutineDec(self,tokenizer):
-        self.write("<subroutineDec>\n")
-        self.increase_indent()
+        tokenizer.advance() # will be ;
 
-        self.write_terminals_until(tokenizer,"(")
-     
-    
-        self.CompileParameterList(tokenizer)
-
-        self.write_terminal(tokenizer) #will be )
-
-        #code for subroutine body now
-
-        self.write("<subroutineBody>\n")
-        self.increase_indent()
-
-        self.write_terminal(tokenizer) #should be {
-        while (tokenizer.next_token() == 'var'):
-            self.CompilevarDec(tokenizer)
-        
-        self.CompileStatements(tokenizer)
-
-        self.write_terminal(tokenizer) # should be }
-
-        self.decrease_indent()
-        self.write("</subroutineBody>\n")
-
-        self.decrease_indent()
-        self.write("</subroutineDec>\n")
-
-
-    def CompilevarDec(self,tokenizer):
-
-        self.write("<varDec>\n")
-        self.increase_indent()
-
-        self.write_terminals_until(tokenizer,";")
-       
-        self.decrease_indent()
-        self.write("</varDec>\n")
-        
-
-    def CompileParameterList(self,tokenizer):
-        self.write("<parameterList>\n")
-        self.increase_indent()
-
-        self.write_terminals_before(tokenizer,")")
 
         
-        self.decrease_indent()
-        self.write("</parameterList>\n")
-
-
-    def CompileStatements(self,tokenizer):
-
         
-        self.write("<statements>\n")
-        self.increase_indent()
+
+    def CompilesubroutineDec(self,tokenizer, writer):
+        
+        subroutine_kind = tokenizer.advance() # constructor / method  / function
+        return_type = tokenizer.advance() # return type
+        subroutine_name = tokenizer.advance() # 
+
+        self.symbol_table.startSubroutine()
+
+        if subroutine_kind == 'method':
+            self.symbol_table.define('instance',self.classname,'arg')
+
+        tokenizer.advance() # '('
+        self.CompileParameterList(self, tokenizer, writer) 
+
+        tokenizer.advance() # must be )
+        tokenizer.adance() # must be  {
+
+        while tokenizer.next_token() == 'var':
+            self.compileVarDec(tokenizer,writer)
+
+        function_name = '{}.{}'.format(self.class_name, subroutine_name)
+        num_locals = self.symbol_table.varCount('var')
+        writer.writeFunction(function_name, num_locals)
+
+        if subroutine_kind == 'constructor':
+            num_fields = self.symbol_table.varCount('FIELD')
+            writer.writePush('constant', num_fields) #pushes number of fields
+            writer.writeCall('Memory.alloc', 1) # calls Memory.alloc with one argument (which is the topmost stack point)
+            writer.writePop('pointer', 0)
+        elif subroutine_kind == 'method':
+            self.vm_writer.writePush('arg', 0)
+            self.vm_writer.writePop('pointer', 0)
+
+        self.compileStatements(tokenizer, writer) # statements
+        tokenizer.advance()# '}'
+
+
+    def CompilevarDec(self,tokenizer, writer):
+
+        tokenizer.advance()# 'var'
+        type = tokenizer.advance()() # type
+        name = tokenizer.advance()() 
+
+        self.symbol_table.define(name, type, 'var')
+
+        while tokenizer.next_token() != ';': # there is one more varname
+            tokenizer.advance() # ','
+            name = tokenizer.advance() # varName
+            self.symbol_table.define(name, type, 'var')
+
+        tokenizer.advance() # ';'
+
+  
+    def CompileParameterList(self,tokenizer, writer): #yes I konw this doesnt write anything, but its easier to pass tokenizer and writer to everything 
+        if tokenizer.next_token() != ')': #there is atleast one argument
+            type = tokenizer.advance() # type
+            name = tokenizer.advance() # varName
+
+            self.symbol_table.define(name, type, 'arg')
+
+        while tokenizer.next_token() != ')' : # there is more arguments 
+            tokenizer.advancec() # must be ,
+            type = tokenizer.advance()
+            name = tokenizer.advance()
+            self.symbol_table.define(name, type, 'arg')
+
+
+    def CompileStatements(self,tokenizer, writer):
 
         
         while (tokenizer.next_token() in ['let','if','while','do','return']): #there is another statement to write
 
             nexttoken = tokenizer.next_token()
             if nexttoken == 'let':
-                self.CompileLet(tokenizer)
+                self.CompileLet(tokenizer, writer)
             elif nexttoken == 'if':
-                self.CompileIf( tokenizer)
+                self.CompileIf( tokenizer, writer)
             elif nexttoken == 'while':
-                self.CompileWhile( tokenizer)
+                self.CompileWhile( tokenizer, writer)
             elif nexttoken == 'do':
-                self.CompileDo(tokenizer)
+                self.CompileDo(tokenizer, writer)
             elif nexttoken == 'return':
-                self.CompileReturn( tokenizer)
-
-        self.decrease_indent()
-        self.write("</statements>\n")
+                self.CompileReturn( tokenizer, writer)
 
 
-    def CompileLet(self, tokenizer):
-        self.write("<letStatement>\n")
-        self.increase_indent()
-
-        self.write_terminal(tokenizer)# has to be "let"
-        self.write_terminal(tokenizer) # has to be varname
-
-        if tokenizer.next_token() == '[':
-            self.write_terminal(tokenizer) # has to be [
-            self.CompileExpression(tokenizer)
-            self.write_terminal(tokenizer) # has to be ]
-
-
-        self.write_terminal(tokenizer) # has to be =
-        self.CompileExpression(tokenizer)
-        self.write_terminal(tokenizer) # has to be ;
-
-
-        self.decrease_indent()
-        self.write("</letStatement>\n")
-
-    def CompileIf(self, tokenizer):
-        self.write("<ifStatement>\n")
-        self.increase_indent()
+    def CompileDo(self, tokenizer, writer):
         
-        self.write_terminal(tokenizer) # has to be IF
-        self.write_terminal(tokenizer) # has to be (
-        self.CompileExpression(tokenizer) 
-        self.write_terminal(tokenizer) # has to be )
-
-        self.write_terminal(tokenizer) # has to be {
-        self.CompileStatements(tokenizer)
-        self.write_terminal(tokenizer) # has to be }
-
-        if tokenizer.next_token() == 'else':
-            self.write_terminal(tokenizer)# has to be 'else'
-            self.write_terminal(tokenizer)# has to be {
-            self.CompileStatements(tokenizer)
-            self.write_terminal(tokenizer)# has to be }
-
-        self.decrease_indent()
-        self.write("</ifStatement>\n")
-
-    def CompileWhile(self, tokenizer):
-        self.write("<whileStatement>\n")
-        self.increase_indent()
-
-        self.write_terminal(tokenizer) # must be 'while'
-        self.write_terminal(tokenizer)
-        self.CompileExpression(tokenizer)
-        self.write_terminal(tokenizer) # must be )
-
-        self.write_terminal(tokenizer)
-        self.CompileStatements(tokenizer)
-        self.write_terminal(tokenizer) # must be )
-
-
-        self.decrease_indent()
-        self.write("</whileStatement>\n")
-
-
-
-    def CompileDo(self, tokenizer):
-        self.write("<doStatement>\n")
-        self.increase_indent()
-
-        self.write_terminal(tokenizer) # must be 'do'
+        tokenizer.advance() # must be 'do'
         ## noe we must do subroutineCall
 
-        self.write_terminal(tokenizer) #subroutine name / classnameorvarname
+        self.CompileSubroutineCall(self, tokenizer, writer)
 
-        if tokenizer.next_token() == '(':
-            self.write_terminal(tokenizer) # (
-            self.CompileExpressionList(tokenizer)
-            self.write_terminal(tokenizer) # must be )
+       
+        writer.writePop('temp', 0) #Why is this needed ??
+        tokenizer.advance() # ;
 
-        elif tokenizer.next_token() == ".":
-            self.write_terminals_until(tokenizer,"(") # 
-            self.CompileExpressionList(tokenizer)
-            self.write_terminal(tokenizer) # must be )
+    # 'let' varName ('[' expression ']')? '=' expression ';'
+    def CompileLet(self, tokenizer, writer):
+        tokenizer.advance() # must be let
 
-        self.write_terminal(tokenizer) # must  be ;
-        self.decrease_indent()
-        self.write("</doStatement>\n")
+        varname = tokenizer.advance() 
+        varkind = CONVERT_KIND[self.symbol_table.kindOf(varname)]
+        varindex = self.symbol_table.indexOf(varname)
+
+        if tokenizer.next_token() == '[':
+            tokenizer.advance() # has to be [
+            self.CompileExpression(tokenizer, writer) # the value of the index of the array has been pushed onto stack
+            tokenizer.advance(tokenizer) # has to be ] 
+
+            writer.writePush(varkind, varindex)
+            writer.writeArithmetic('add')
+            writer.writePop('temp',0) # store this address in temp.
+
+            tokenizer.advance() # must be =
+            tokenizer.compileExpression() #
+            tokenizer.advance() # ;
+
+            writer.writePush('temp',0)
+            writer.writePop('pointer',1) # pop the array location to pointer 1. therefore that  is set to the location of the place in the array.
+            writer.writePop('that',0) # pop the RHS of = to that .., which is the array location....
+
+        else : #regular assignment
+            tokenizer.advance() # has to be =
+            self.CompileExpression(tokenizer)
+            tokenizer.advance() # has to be ;
+
+            writer.writePop(varkind,varindex) # pop the value and store it in var
+
+## 'if' '(' expression ')' '{' statements '}' ( 'else' '{' statements '}' )?
+    def CompileIf(self, tokenizer, writer):
         
-    
-    def CompileReturn(self, tokenizer):
-        self.write("<returnStatement>\n")
-        self.increase_indent()
+        tokenizer.advance() # must be if
+        tokenizer.advance() # must be (
+        
+        self.CompileExpression(tokenizer,writer)
+        writer.writeArirthmetic('not')
 
-        self.write_terminal(tokenizer) # must be return
+        writer.writeIf("if_false{}".format(if_index)) # jumps if ifcondition is false.
+
+        tokenizer.advance() # )
+        tokenizer.advance() # {
+        
+        self.CompileStatements(tokenizer,writer)
+
+        tokenizer.advance() #}
+        writer.writeGoto("if_true{}".format(if_index)) # always jumps if condition is true..
+        writer.writeLabel("if_false{}".format(if_index))
+        
+        
+        if tokenizer.next_token() == 'else': # there exists an else statement
+            tokenizer.advance() # else
+
+            tokenizer.advance() #{
+            self.compileStatements(tokenizer, writer)
+            tokenizer.advance() #}
+
+        writer.Label("if_true{}".format(if_index)) # 
+       
+        if_index = if_index + 1
+  
+    # 'while' '(' expression ')' '{' statements '}'
+    def CompileWhile(self, tokenizer, writer):
+        tokenizer.advance() # must be while
+        tokenizer.advance() # must be (
+            
+        writer.writeLabel('while{}\n'.format(while_index))
+        
+        self.compileExpression(tokenizer,writer)
+        writer.writeArithmetic('not') # evaluatate false doncition.
+
+        tokenizer.advance() # is )
+        tokenizer.advance() # is {
+
+        writer.writeIf('while_end{}\n"'.format(while_index)) #if true, got to end of while loop
+        self.compileStatements(tokenizer,writer)
+        tokenizer.advance() # must be }
+
+        writer.writeGoto('while{}\n'.format(while_index))
+        writer.writeLabel('while_end{}\n'.format(while_index))
+
+    
+    # 'return' expression? ';'
+    def CompileReturn(self, tokenizer, writer):
+       
+        tokenizer.advance() # must be return
 
         if tokenizer.next_token() != ';': # there is a return expression
             self.CompileExpression(tokenizer)
-        
-        self.write_terminal(tokenizer) # must be ;
+        else: # push dummy
+            writer.writePush('constant',0)
+
+        writer.writeReturn()
+        tokenizer.advance()
 
 
-        self.decrease_indent()
-        self.write("</returnStatement>\n")
+###### start to write here. 
 
     def CompileExpression(self, tokenizer):
         self.write("<expression>\n")
@@ -496,6 +501,48 @@ class CompilationEngine():
         self.decrease_indent()
         self.write("</term>\n")
 
+
+
+    ### HELPER FUNCTIONS
+    # subroutineCall: subroutineName '(' expressionList ')' | ( className | varName) '.' subroutineName '(' expressionList ')'
+    def compile_subroutine_call(self, tokenizer, writer):
+        identifier = tokenizer.advance() # (subroutineName | className | varName)
+        function_name = identifier
+        number_args = 0
+
+        if tokenizer.next_token()  == '.':
+            tokenizer.advance()
+            subroutine_name = tokenizer.advance()  # subroutineName
+
+            type = self.symbol_table.typeOf(identifier)
+
+            if type != 'none': # it's an instance, and not a class!
+                instance_kind = self.symbol_table.kindOf(identifier)
+                instance_index = self.symbol_table.indexOf(identifier)
+
+                writer.writePush(CONVERT_KIND[instance_kind], instance_index)
+
+                function_name = '{}.{}'.format(type, subroutine_name) 
+                number_args += 1
+            else: # it's a class
+                class_name = identifier
+                function_name = '{}.{}'.format(class_name, subroutine_name)
+        
+        elif tokenizer.next_token() == '(':
+            subroutine_name = identifier
+            function_name = '{}.{}'.format(self.class_name, subroutine_name)
+            number_args = number_args + 1
+
+            writer.writePush('pointer', 0)
+
+        tokenizer.advance()             # '('
+        number_args = number_args + self.compileExpressionList()  # expressionList. THis code must push correctly to stack, and return number of things pushed...
+        tokenizer.advance()              # ')'
+
+        writer.writeCall(function_name, number_args)
+
+    
+
         
        
 class SymbolTable:
@@ -557,6 +604,7 @@ class SymbolTable:
         elif name in  self.symbol_table.keys():
             value = self.symbol_table[name]
             return value[1]
+        return 'none'
 
     def typeof(self,name):
         if name in self.subroutine_table.keys():
@@ -565,6 +613,7 @@ class SymbolTable:
         elif name in  self.symbol_table.keys():
             value = self.symbol_table[name]
             return value[0]
+        return 'none'
     
     def indexof(self,name):
         if name in self.subroutine_table.keys():
@@ -573,7 +622,7 @@ class SymbolTable:
         elif name in  self.symbol_table.keys():
             value = self.symbol_table[name]
             return value[2]
-
+        return 'none'
 
 
 class VM_Writer: #writes the VM commants
@@ -638,8 +687,8 @@ if input_path.endswith(".jack"): #end of path is .vm, so file
     output_file_path = input_path.replace(".jack",".xml")
     
     tokenizer = Tokenizer(input_path)
-    writer = CompilationEngine(output_file_path)
-    writer.CompileClass(tokenizer)
+    compiler = CompilationEngine(output_file_path)
+    compiler.CompileClass(tokenizer)
 
    
 else : #its a directory
@@ -651,7 +700,7 @@ else : #its a directory
             tokenizer = Tokenizer(path)
             output_file_path = path.replace(".jack",".xml")
             print("Writing to "+output_file_path+"\n")
-            writer = CompilationEngine(output_file_path)
-            writer.CompileClass(tokenizer)
+            compiler = CompilationEngine(output_file_path)
+            compiler.CompileClass(tokenizer)
 
     
