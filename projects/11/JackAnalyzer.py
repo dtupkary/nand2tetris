@@ -59,6 +59,11 @@ class Tokenizer:
         
         return self.tokens[self.index]
 
+    def next_next_token(self): #needed for compiling terms
+        
+        return self.tokens[self.index+1]
+
+
     def token_type(token):
         if token.startswith("\""):
             return "stringConstant"
@@ -210,7 +215,7 @@ class CompilationEngine():
             self.CompilesubroutineDec(tokenizer, writer)
 
 
-        self.writer.close()
+        writer.close()
     
     
     def CompileclassVarDec(self,tokenizer, writer):
@@ -243,20 +248,20 @@ class CompilationEngine():
             self.symbol_table.define('instance',self.classname,'arg')
 
         tokenizer.advance() # '('
-        self.CompileParameterList(self, tokenizer, writer) 
+        self.CompileParameterList(tokenizer, writer) 
 
         tokenizer.advance() # must be )
-        tokenizer.adance() # must be  {
+        tokenizer.advance() # must be  {
 
         while tokenizer.next_token() == 'var':
             self.compileVarDec(tokenizer,writer)
 
-        function_name = '{}.{}'.format(self.class_name, subroutine_name)
-        num_locals = self.symbol_table.varCount('var')
+        function_name = '{}.{}'.format(self.classname, subroutine_name)
+        num_locals = self.symbol_table.varcount('var')
         writer.writeFunction(function_name, num_locals)
 
         if subroutine_kind == 'constructor':
-            num_fields = self.symbol_table.varCount('FIELD')
+            num_fields = self.symbol_table.varcount('FIELD')
             writer.writePush('constant', num_fields) #pushes number of fields
             writer.writeCall('Memory.alloc', 1) # calls Memory.alloc with one argument (which is the topmost stack point)
             writer.writePop('pointer', 0)
@@ -264,7 +269,7 @@ class CompilationEngine():
             self.vm_writer.writePush('arg', 0)
             self.vm_writer.writePop('pointer', 0)
 
-        self.compileStatements(tokenizer, writer) # statements
+        self.CompileStatements(tokenizer, writer) # statements
         tokenizer.advance()# '}'
 
 
@@ -321,7 +326,7 @@ class CompilationEngine():
         tokenizer.advance() # must be 'do'
         ## noe we must do subroutineCall
 
-        self.CompileSubroutineCall(self, tokenizer, writer)
+        self.CompileSubroutineCall(tokenizer, writer)
 
        
         writer.writePop('temp', 0) #Why is this needed ??
@@ -332,8 +337,8 @@ class CompilationEngine():
         tokenizer.advance() # must be let
 
         varname = tokenizer.advance() 
-        varkind = CONVERT_KIND[self.symbol_table.kindOf(varname)]
-        varindex = self.symbol_table.indexOf(varname)
+        varkind = CONVERT_KIND[self.symbol_table.kindof(varname)]
+        varindex = self.symbol_table.indexof(varname)
 
         if tokenizer.next_token() == '[':
             tokenizer.advance() # has to be [
@@ -384,7 +389,7 @@ class CompilationEngine():
             tokenizer.advance() # else
 
             tokenizer.advance() #{
-            self.compileStatements(tokenizer, writer)
+            self.CompileStatements(tokenizer, writer)
             tokenizer.advance() #}
 
         writer.Label("if_true{}".format(if_index)) # 
@@ -405,7 +410,7 @@ class CompilationEngine():
         tokenizer.advance() # is {
 
         writer.writeIf('while_end{}\n"'.format(while_index)) #if true, got to end of while loop
-        self.compileStatements(tokenizer,writer)
+        self.CompileStatements(tokenizer,writer)
         tokenizer.advance() # must be }
 
         writer.writeGoto('while{}\n'.format(while_index))
@@ -442,71 +447,85 @@ class CompilationEngine():
 
         return count
 
-###### start to write here. 
 
-    def CompileExpression(self, tokenizer):
-        self.write("<expression>\n")
-        self.increase_indent()
-
-        self.CompileTerm(tokenizer)
+    # term (op term)*
+    def CompileExpression(self, tokenizer, writer):
+       
+        self.CompileTerm(tokenizer, writer) #compile the first term...
 
        
 
         while tokenizer.next_token() in ['+','-','*','/','&','|','<','>','=']: #there is another term
-            self.write_terminal(tokenizer) # will be the above symbol
-            self.CompileTerm(tokenizer)
+            op = tokenizer.advance() # will be the above symbol
+            self.CompileTerm(tokenizer, writer) #second term is on stack now 
+            
+        if op in ARITHMETIC.keys():
+            writer.writeArithmetic(ARITHMETIC[op])
+        elif op == '*':
+            writer.writeCall('Math.multiply', 2)
+        elif op == '/':
+            writer.writeCall('Math.divide',2)
+        
 
 
-        self.decrease_indent()
-        self.write("</expression>\n")
+    # integerConstant | stringConstant | keywordConstant | varName |
+  # varName '[' expression ']' | subroutineCall | '(' expression ')' | unaryOp term
 
-    def CompileTerm(self, tokenizer):
+    def CompileTerm(self, tokenizer, writer):
 
-        self.write("<term>\n")
-        self.increase_indent()
+        
 
         nexttoken = tokenizer.next_token()
 
         if nexttoken in ['-','~']: #unary op
-            self.write_terminal(tokenizer) 
-            self.CompileTerm(tokenizer)
+            op = tokenizer.advance() # -/ ~
+            self.CompileTerm(tokenizer, writer)
+            writer.writeArithmetic(ARITHMETIC_UNARY[op])
         
         elif nexttoken == '(':
+            tokenizer.advance() # (
+            self.CompileExpression(tokenizer, writer)
+            tokenizer.advance() # )
 
-            self.write_terminal(tokenizer) # will be some 
-            self.CompileExpression(tokenizer)
-            self.write_terminal(tokenizer)
+        elif Tokenizer.token_type(nexttoken) == 'integerConstant':
+            writer.writePush('constant', tokenizer.advance() )
+        elif Tokenizer.token_type(nexttoken) == 'stringConstant':
+            self.compileString(tokenizer,writer)
+
+        elif Tokenizer.token_type(nexttoken) == 'keyword':
+            self.compileKeyword(tokenizer, writer)
+
+        else : #it is a var / var[] , subroutine
         
-        else:
-            self.write_terminal(tokenizer) # wil be something
+           
+            if tokenizer.next_next_token() == '[': # array indexing
+                token  = tokenizer.advance()
+                tokenizer.advance() # must be [
+                self.CompileExpression(tokenizer, writer)
+                tokenizer.advance() # must be ]
 
-            nexttoken = tokenizer.next_token()
-            if nexttoken == '[': # array indexing
-                self.write_terminal(tokenizer)
-                self.CompileExpression(tokenizer)
-                self.write_terminal(tokenizer)
-            
-            elif nexttoken == '(': 
-                self.write_terminal(tokenizer)
-                self.CompileExpressionList(tokenizer)
-                self.write_terminal(tokenizer)
+                array_kind = self.symbol_table.kindof(token)
+                array_index = self.symbol_table.indexof(token)
 
-            elif nexttoken == '.':
-                self.write_terminal(tokenizer)
-                self.write_terminal(tokenizer)
-                self.write_terminal(tokenizer)
+                writer.writePush(CONVERT_KIND[array_kind], array_index)
+                writer.writeArithmetic('add') # will added to get address of the place within the array
+                writer.writePop('pointer',1) # store in pointer
 
-                self.CompileExpressionList(tokenizer)
-                self.write_terminal(tokenizer)
-                
-        self.decrease_indent()
-        self.write("</term>\n")
+                writer.writePush('that',0) # push this to that 0
 
+            elif tokenizer.next_next_token() in ['.','(']:
+                self.CompileSubroutineCall(tokenizer,writer)
+
+            else:
+                var = tokenizer.advance()
+                var_kind = CONVER_KIND[self.symbol_table.kindof(var)]
+                var_index = self.symbol_table.indexof(var)
+                writer.writePush(var_kind,var_index)
 
 
     ### HELPER FUNCTIONS
     # subroutineCall: subroutineName '(' expressionList ')' | ( className | varName) '.' subroutineName '(' expressionList ')'
-    def compile_subroutine_call(self, tokenizer, writer):
+    def CompileSubroutineCall(self, tokenizer, writer):
         identifier = tokenizer.advance() # (subroutineName | className | varName)
         function_name = identifier
         number_args = 0
@@ -515,11 +534,11 @@ class CompilationEngine():
             tokenizer.advance()
             subroutine_name = tokenizer.advance()  # subroutineName
 
-            type = self.symbol_table.typeOf(identifier)
+            type = self.symbol_table.typeof(identifier)
 
             if type != 'none': # it's an instance, and not a class!
-                instance_kind = self.symbol_table.kindOf(identifier)
-                instance_index = self.symbol_table.indexOf(identifier)
+                instance_kind = self.symbol_table.kindof(identifier)
+                instance_index = self.symbol_table.indexof(identifier)
 
                 writer.writePush(CONVERT_KIND[instance_kind], instance_index)
 
@@ -537,12 +556,21 @@ class CompilationEngine():
             writer.writePush('pointer', 0)
 
         tokenizer.advance()             # '('
-        number_args = number_args + self.compileExpressionList()  # expressionList. THis code must push correctly to stack, and return number of things pushed...
+        number_args = number_args + self.CompileExpressionList(tokenizer,writer)  # expressionList. THis code must push correctly to stack, and return number of things pushed...
         tokenizer.advance()              # ')'
 
         writer.writeCall(function_name, number_args)
 
-    
+
+    def compile_string(self, tokenizer, writer):
+        string = tokenizer.advance() # stringConstant
+        writer.writePush('constant', len(string))
+        writer.writeCall('String.new',1)
+
+        for char in string:
+            writer.writePush('constant',ord(char))
+            writer.writeCall('String.appendChar',2)
+ 
 
         
        
@@ -640,10 +668,10 @@ class VM_Writer: #writes the VM commants
         self.file.write("\n")
 
     def writePush(self,segment,index):
-        self.write_list(self,["push",segment,str(index)])
+        self.write_list(["push",segment,str(index)])
 
     def writePop(self,segment,index):
-        self.write_list(self,["pop",segment,str(index)])
+        self.write_list(["pop",segment,str(index)])
 
     def writeArithmetic(self,command):
         self.write(command+"\n")
@@ -658,10 +686,10 @@ class VM_Writer: #writes the VM commants
         self.write("if-goto {}\n".format(string))
 
     def writeCall(self, string, nargs):
-        self.write_list(self,["call",string,str(nargs)])
+        self.write_list(["call",string,str(nargs)])
     
     def writeFunction(self, string, nlocals):
-        self.write_list(self,["function",string,str(nlocals)])
+        self.write_list(["function",string,str(nlocals)])
 
     def writeReturn(self):
         self.write("return\n")
@@ -679,8 +707,8 @@ class VM_Writer: #writes the VM commants
 
 
 
-input_path = sys.argv[1]
-#input_path = "./Square/Square.jack"
+#input_path = sys.argv[1]
+input_path = "./Seven"
 
 
 
@@ -689,7 +717,9 @@ if input_path.endswith(".jack"): #end of path is .vm, so file
     
     tokenizer = Tokenizer(input_path)
     compiler = CompilationEngine(output_file_path)
-    compiler.CompileClass(tokenizer)
+    writer = VM_Writer(output_file_path)
+
+    compiler.CompileClass(tokenizer, writer)
 
    
 else : #its a directory
@@ -702,6 +732,8 @@ else : #its a directory
             output_file_path = path.replace(".jack",".xml")
             print("Writing to "+output_file_path+"\n")
             compiler = CompilationEngine(output_file_path)
-            compiler.CompileClass(tokenizer)
+            writer = VM_Writer(output_file_path)
+
+            compiler.CompileClass(tokenizer, writer)
 
     
