@@ -23,7 +23,7 @@ DELIMITERS = [' ','\n']
 
 
 global CONVERT_KIND
-CONVERT_KIND = {     'arg': 'arg',    'static': 'static',    'var': 'local',    'field': 'this'  }
+CONVERT_KIND = {     'arg': 'argument',    'static': 'static',    'var': 'local',    'field': 'this'  }
 
 global ARITHMETIC 
 ARITHMETIC = {    '+': 'add',    '-': 'sub',    '=': 'eq',    '>': 'gt',    '<': 'lt',    '&': 'and',    '|': 'or'  }
@@ -31,11 +31,8 @@ ARITHMETIC = {    '+': 'add',    '-': 'sub',    '=': 'eq',    '>': 'gt',    '<':
 global ARITHMETIC_UNARY
 ARITHMETIC_UNARY = {    '-': 'neg',    '~': 'not'  }
 
-global while_index 
-while_index = 0
 
-global if_index
-if_index = 0
+
 
   
 
@@ -201,6 +198,8 @@ class CompilationEngine():
         #self.writer = VM_Writer(output_file) 
         self.symbol_table = SymbolTable()   
         self.classname = ""
+        self.if_index = -1
+        self.while_index = -1
         
 
     def CompileClass(self,tokenizer,writer):
@@ -245,7 +244,7 @@ class CompilationEngine():
         self.symbol_table.startSubroutine()
 
         if subroutine_kind == 'method':
-            self.symbol_table.define('instance',self.classname,'arg')
+            self.symbol_table.define('instance',self.classname,'argument')
 
         tokenizer.advance() # '('
         self.CompileParameterList(tokenizer, writer) 
@@ -254,7 +253,7 @@ class CompilationEngine():
         tokenizer.advance() # must be  {
 
         while tokenizer.next_token() == 'var':
-            self.compileVarDec(tokenizer,writer)
+            self.CompileVarDec(tokenizer,writer)
 
         function_name = '{}.{}'.format(self.classname, subroutine_name)
         num_locals = self.symbol_table.varcount('var')
@@ -266,18 +265,18 @@ class CompilationEngine():
             writer.writeCall('Memory.alloc', 1) # calls Memory.alloc with one argument (which is the topmost stack point)
             writer.writePop('pointer', 0)
         elif subroutine_kind == 'method':
-            self.vm_writer.writePush('arg', 0)
-            self.vm_writer.writePop('pointer', 0)
+            writer.writePush('argument', 0)
+            writer.writePop('pointer', 0)
 
         self.CompileStatements(tokenizer, writer) # statements
         tokenizer.advance()# '}'
 
 
-    def CompilevarDec(self,tokenizer, writer):
+    def CompileVarDec(self,tokenizer, writer):
 
         tokenizer.advance()# 'var'
-        type = tokenizer.advance()() # type
-        name = tokenizer.advance()() 
+        type = tokenizer.advance() # type
+        name = tokenizer.advance() 
 
         self.symbol_table.define(name, type, 'var')
 
@@ -297,7 +296,7 @@ class CompilationEngine():
             self.symbol_table.define(name, type, 'arg')
 
         while tokenizer.next_token() != ')' : # there is more arguments 
-            tokenizer.advancec() # must be ,
+            tokenizer.advance() # must be ,
             type = tokenizer.advance()
             name = tokenizer.advance()
             self.symbol_table.define(name, type, 'arg')
@@ -343,14 +342,14 @@ class CompilationEngine():
         if tokenizer.next_token() == '[':
             tokenizer.advance() # has to be [
             self.CompileExpression(tokenizer, writer) # the value of the index of the array has been pushed onto stack
-            tokenizer.advance(tokenizer) # has to be ] 
+            tokenizer.advance() # has to be ] 
 
             writer.writePush(varkind, varindex)
             writer.writeArithmetic('add')
             writer.writePop('temp',0) # store this address in temp.
 
             tokenizer.advance() # must be =
-            tokenizer.compileExpression() #
+            self.CompileExpression(tokenizer, writer) #
             tokenizer.advance() # ;
 
             writer.writePush('temp',0)
@@ -359,31 +358,37 @@ class CompilationEngine():
 
         else : #regular assignment
             tokenizer.advance() # has to be =
-            self.CompileExpression(tokenizer)
+            self.CompileExpression(tokenizer, writer)
             tokenizer.advance() # has to be ;
 
             writer.writePop(varkind,varindex) # pop the value and store it in var
 
 ## 'if' '(' expression ')' '{' statements '}' ( 'else' '{' statements '}' )?
     def CompileIf(self, tokenizer, writer):
-        
+        self.if_index = self.if_index+1
+        if_index = self.if_index # so that this loop gets this variable no matter what the compiler does when it goes into statements and all
         tokenizer.advance() # must be if
         tokenizer.advance() # must be (
         
         self.CompileExpression(tokenizer,writer)
-        writer.writeArirthmetic('not')
-
-        writer.writeIf("if_false{}".format(if_index)) # jumps if ifcondition is false.
 
         tokenizer.advance() # )
         tokenizer.advance() # {
+
+      
+
+        writer.writeIf("IF_TRUE{}".format(if_index)) # jumps if ifcondition is true
+        writer.writeGoto("IF_FALSE{}".format(if_index))
+        writer.writeLabel("IF_TRUE{}".format(if_index))
+
         
         self.CompileStatements(tokenizer,writer)
 
-        tokenizer.advance() #}
-        writer.writeGoto("if_true{}".format(if_index)) # always jumps if condition is true..
-        writer.writeLabel("if_false{}".format(if_index))
+        writer.writeGoto("IF_END{}".format(if_index)) # always jumps if condition is true..
+        writer.writeLabel("IF_FALSE{}".format(if_index))
         
+        
+        tokenizer.advance() #}
         
         if tokenizer.next_token() == 'else': # there exists an else statement
             tokenizer.advance() # else
@@ -392,29 +397,32 @@ class CompilationEngine():
             self.CompileStatements(tokenizer, writer)
             tokenizer.advance() #}
 
-        writer.Label("if_true{}".format(if_index)) # 
-       
-        if_index = if_index + 1
+        writer.writeLabel("IF_END{}".format(if_index))
+      
   
     # 'while' '(' expression ')' '{' statements '}'
     def CompileWhile(self, tokenizer, writer):
+        self.while_index = self.while_index + 1
+      
+        while_index = self.while_index
+
         tokenizer.advance() # must be while
         tokenizer.advance() # must be (
             
-        writer.writeLabel('while{}\n'.format(while_index))
+        writer.writeLabel('WHILE_EXP{}'.format(while_index))
         
-        self.compileExpression(tokenizer,writer)
-        writer.writeArithmetic('not') # evaluatate false doncition.
+        self.CompileExpression(tokenizer,writer)
+        writer.writeArithmetic('not') # evaluatate false concition.
 
         tokenizer.advance() # is )
         tokenizer.advance() # is {
 
-        writer.writeIf('while_end{}\n"'.format(while_index)) #if true, got to end of while loop
+        writer.writeIf('WHILE_END{}'.format(while_index)) #if true, got to end of while loop
         self.CompileStatements(tokenizer,writer)
         tokenizer.advance() # must be }
 
-        writer.writeGoto('while{}\n'.format(while_index))
-        writer.writeLabel('while_end{}\n'.format(while_index))
+        writer.writeGoto('WHILE_EXP{}'.format(while_index))
+        writer.writeLabel('WHILE_END{}'.format(while_index))
 
     
     # 'return' expression? ';'
@@ -423,7 +431,7 @@ class CompilationEngine():
         tokenizer.advance() # must be return
 
         if tokenizer.next_token() != ';': # there is a return expression
-            self.CompileExpression(tokenizer)
+            self.CompileExpression(tokenizer, writer)
         else: # push dummy
             writer.writePush('constant',0)
 
@@ -459,12 +467,12 @@ class CompilationEngine():
             op = tokenizer.advance() # will be the above symbol
             self.CompileTerm(tokenizer, writer) #second term is on stack now 
             
-        if op in ARITHMETIC.keys():
-            writer.writeArithmetic(ARITHMETIC[op])
-        elif op == '*':
-            writer.writeCall('Math.multiply', 2)
-        elif op == '/':
-            writer.writeCall('Math.divide',2)
+            if op in ARITHMETIC.keys():
+                writer.writeArithmetic(ARITHMETIC[op])
+            elif op == '*':
+                writer.writeCall('Math.multiply', 2)
+            elif op == '/':
+                writer.writeCall('Math.divide',2)
         
 
 
@@ -490,10 +498,10 @@ class CompilationEngine():
         elif Tokenizer.token_type(nexttoken) == 'integerConstant':
             writer.writePush('constant', tokenizer.advance() )
         elif Tokenizer.token_type(nexttoken) == 'stringConstant':
-            self.compileString(tokenizer,writer)
+            self.CompileString(tokenizer,writer)
 
         elif Tokenizer.token_type(nexttoken) == 'keyword':
-            self.compileKeyword(tokenizer, writer)
+            self.CompileKeyword(tokenizer, writer)
 
         else : #it is a var / var[] , subroutine
         
@@ -518,7 +526,7 @@ class CompilationEngine():
 
             else:
                 var = tokenizer.advance()
-                var_kind = CONVER_KIND[self.symbol_table.kindof(var)]
+                var_kind = CONVERT_KIND[self.symbol_table.kindof(var)]
                 var_index = self.symbol_table.indexof(var)
                 writer.writePush(var_kind,var_index)
 
@@ -550,7 +558,7 @@ class CompilationEngine():
         
         elif tokenizer.next_token() == '(':
             subroutine_name = identifier
-            function_name = '{}.{}'.format(self.class_name, subroutine_name)
+            function_name = '{}.{}'.format(self.classname, subroutine_name)
             number_args = number_args + 1
 
             writer.writePush('pointer', 0)
@@ -562,7 +570,7 @@ class CompilationEngine():
         writer.writeCall(function_name, number_args)
 
 
-    def compile_string(self, tokenizer, writer):
+    def CompileString(self, tokenizer, writer):
         string = tokenizer.advance() # stringConstant
         writer.writePush('constant', len(string))
         writer.writeCall('String.new',1)
@@ -570,8 +578,17 @@ class CompilationEngine():
         for char in string:
             writer.writePush('constant',ord(char))
             writer.writeCall('String.appendChar',2)
- 
 
+    def CompileKeyword(self, tokenizer, writer):
+        keyword = tokenizer.advance()
+
+        if keyword == 'this':
+            writer.writePush('pointer', 0)
+        else:
+            writer.writePush('constant', 0)
+
+            if keyword == 'true':
+                writer.writeArithmetic('not')
         
        
 class SymbolTable:
@@ -707,13 +724,13 @@ class VM_Writer: #writes the VM commants
 
 
 
-#input_path = sys.argv[1]
-input_path = "./Seven"
+input_path = sys.argv[1]
+#input_path = "./Average"
 
 
 
 if input_path.endswith(".jack"): #end of path is .vm, so file 
-    output_file_path = input_path.replace(".jack",".xml")
+    output_file_path = input_path.replace(".jack",".vm")
     
     tokenizer = Tokenizer(input_path)
     compiler = CompilationEngine(output_file_path)
@@ -729,7 +746,7 @@ else : #its a directory
         if file_path.endswith(".jack"):
             path = input_path +"/"+file_path
             tokenizer = Tokenizer(path)
-            output_file_path = path.replace(".jack",".xml")
+            output_file_path = path.replace(".jack",".vm")
             print("Writing to "+output_file_path+"\n")
             compiler = CompilationEngine(output_file_path)
             writer = VM_Writer(output_file_path)
